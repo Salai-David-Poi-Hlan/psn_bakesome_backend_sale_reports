@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="psn_bakesome_backend_sale_reports.Dashboard" owl="1">
+<div class="o_sale_channel_dashboard o_dashboard_scrollable p-3">
+            <div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
+                <div>
+                   <img src="/psn_bakesome_backend_sale_reports/static/src/image/bakesome.jpg" style="width:50px;height:50px;border-radius:9999px"/>
+                </div>
+                <h1 class="me-auto mb-0 text-white">Bakesome Sale Channels Dashboard</h1>
+
+
+                <div>
+                <label class="form-label mb-0">Branch</label>
+                <select class="form-select form-select-sm" t-on-change="onBranchChange">
+
+                    <option value="">All Branches</option>
+                    <t t-foreach="state.branches" t-as="branch" t-key="branch.id">
+                         <option t-att-value="branch.id" t-esc="branch.name"/>
+                    </t>
+                </select>
+                </div>
+                <div>
+                    <label class="form-label mb-0">From</label>
+                    <input type="date" class="form-control form-control-sm"
+                        t-model="state.dateFrom" t-on-change="onDateChange"/>
+                </div>
+                <div>
+                    <label class="form-label mb-0">To</label>
+                    <input type="date" class="form-control form-control-sm "
+                        t-model="state.dateTo" t-on-change="onDateChange"/>
+                </div>
+            </div>
+
+            <div class="row g-3 mb-4">
+                <div class="col-md-3">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-body">
+                            <div class="text-muted small">Gross Revenue</div>
+                            <div class="fs-4 fw-bold" t-esc="formatMoney(state.kpis.revenue)"/>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-body">
+                            <div class="text-muted small">Quantity Sold</div>
+                            <div class="fs-4 fw-bold" t-esc="formatMoney(state.kpis.qty)"/>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-body">
+                            <div class="text-muted small"># Orders</div>
+                            <div class="fs-4 fw-bold" t-esc="state.kpis.orders"/>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-body">
+                            <div class="text-muted small">Avg Order Value</div>
+                            <div class="fs-4 fw-bold" t-esc="formatMoney(state.kpis.avgOrder)"/>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Sales by Channel</h5>
+                    <table class="table table-sm table-hover">
+                        <thead>
+                            <tr>
+                                <th>Channel</th>
+                                <th class="text-end">Untaxed Total</th>
+                                <th class="text-end">Gross Total</th>
+                                <th class="text-end">Qty</th>
+                                <th class="text-end"># Orders</th>
+                                <th class="text-end">Avg Order</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr t-foreach="state.channelRows" t-as="row" t-key="row.key">
+                                <td t-esc="row.label"/>
+                                <td class="text-end" t-esc="formatMoney(row.untaxed)"/>
+                                <td class="text-end" t-esc="formatMoney(row.gross)"/>
+                                <td class="text-end" t-esc="formatMoney(row.qty)"/>
+                                <td class="text-end" t-esc="row.orders"/>
+                                <td class="text-end"
+                                    t-esc="formatMoney(row.orders ? row.gross / row.orders : 0)"/>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Charts -->
+            <div class="row g-3">
+                <div class="col-md-7">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">Revenue Trend by Channel</h5>
+                            <div style="height: 320px;">
+                                <canvas t-ref="trendCanvas"/>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-5">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center mb-2">
+                                <h5 class="card-title mb-0 me-auto">Trend by Product</h5>
+                                <select class="form-select form-select-sm w-auto"
+                                    t-on-change="onPieMetricChange">
+                                    <option value="price_subtotal">Revenue</option>
+                                    <option value="product_uom_qty">Quantity</option>
+                                </select>
+                            </div>
+                            <div style="height: 320px;">
+                                <canvas t-ref="pieCanvas"/>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+            <div class="row g-3 mt-1">
+                  <div class="col-md-6">
+                        <div class="card shadow-sm h-100">
+                        <div class="card-body">
+                 <div class="d-flex align-items-center mb-2">
+                <h5 class="card-title mb-0 me-auto">Revenue By Branch</h5>
+                <select class="form from-select form-select-sm w-auto" t-on-change="onBranchMetricChange">
+                    <option value="price_subtotal">Revenue</option>
+                    <option value="product_uom_qty">Quantity</option>
+                </select>
+                 </div>
+                 <div style="height:300px">
+                      <canvas t-ref="branchCanvas"/>
+                 </div>
+                        </div>
+                        </div>
+                  </div>
+
+                  <div class="col-md-6">
+                        <div class="card shadow-sm h-100">
+                        <div class="card-body">
+                <h5 class="card-title mb-0 me-auto">Active Customer Trend</h5>
+            
+                 <div style="height:300px">
+                      <canvas t-ref="customerTrendCanvas"/>
+                 </div>
+                        </div>
+                        </div>
+                  </div>
+
+
+              <div class="col-md-6">
+                        <div class="card shadow-sm h-100">
+                        <div class="card-body text-center">
+                <h5 class="card-title mb-0 me-auto">Active Customers Percentage</h5>
+                 <div style="height:260px;position:relative">
+                         <canvas t-ref="gaugeCanvas"/>
+                         <div style="position:absolute;top:60%;left:50%;transform:translate(-50%,50%)"
+                          class="fs-2 fw-bold">
+                   <t t-esc="state.customerActivePct"/>%
+                         </div>
+                    </div>
+             
+                        </div>
+                        </div>
+                  </div>
+
+
+
+                   <div class="col-md-6">
+                        <div class="card shadow-sm h-100">
+                        <div class="card-body">
+                 <div class="d-flex align-items-center mb-2">
+                <h5 class="card-title mb-0 me-auto">By product Category</h5>
+                <select class="form from-select form-select-sm w-auto me-2" t-on-change="onCategoryMetricChange">
+                    <option value="price_subtotal">Revenue</option>
+                    <option value="product_uom_qty">Quantity</option>
+                </select>
+                <button class="btn btn-sm btn-outline-secondary" t-on-click="toggleCategorypage">
+                      <t t-esc="categoryPagelabel"/>
+                </button>
+                 </div>
+                 <div style="height:300px">
+                      <canvas t-ref="categoryCanvas"/>
+                 </div>
+                        </div>
+                        </div>
+                  </div>
+
+
+
+               </div>
+
+
+        </div>
+    </t>
+
+</templates>

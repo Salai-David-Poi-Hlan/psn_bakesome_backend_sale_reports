@@ -1,0 +1,17 @@
+.o_sale_channel_dashboard {
+    .card {
+        border-radius: 0.5rem;
+    }
+    table thead th {
+        font-weight: 600;
+        border-bottom: 2px solid #dee2e6;
+    }
+
+    background-color: orange;
+}
+
+
+.o_dashboard_scrollable {
+    height: 100%;
+    overflow-y: auto;
+}

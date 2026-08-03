@@ -1,0 +1,691 @@
+/** @odoo-module **/
+
+import { useState } from "@odoo/owl";
+
+export const CHANNEL_LABELS = {
+    backend: "Backend Sale",
+    website: "Website",
+    pos: "POS",
+    line_oa: "Line OA",
+};
+
+export function today() {
+    return new Date().toISOString().slice(0, 10);
+}
+
+export function firstDayOfMonth() {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
+}
+
+export function useSaleDashboardFilters() {
+    const state = useState({
+        dateFrom: firstDayOfMonth(),
+        dateTo: today(),
+        branchId: false,
+        channelType: false,
+        branches: [],
+    });
+
+    function buildDomain() {
+        const domain = [
+            ["date", ">=", state.dateFrom],
+            ["date", "<=", state.dateTo],
+            ["state", "!=", "cancel"],
+        ];
+        if (state.branchId) {
+            domain.push(["branch_id", "=", state.branchId]);
+        }
+        if (state.channelType) {
+            domain.push(["channel_type", "=", state.channelType]);
+        }
+        return domain;
+    }
+
+    return { state, buildDomain };
+}
+
+
+
+/** @odoo-module **/
+
+import { Component, onWillStart } from "@odoo/owl";
+import { registry } from "@web/core/registry";
+import { useService } from "@web/core/utils/hooks";
+import { formatFloat } from "@web/core/utils/numbers";
+import { useSaleDashboardFilters, CHANNEL_LABELS } from "./sale_dashboard_filters";
+
+export class TopProductsScreen extends Component {
+    static template = "sale_channel_dashboard.TopProducts";
+
+    setup() {
+        this.orm = useService("orm");
+        const { state, buildDomain } = useSaleDashboardFilters();
+        this.state = state;
+        this.buildDomain = buildDomain;
+        this.state.sortBy = "price_subtotal"; // or "product_uom_qty"
+        this.state.topProducts = [];
+
+        onWillStart(async () => {
+            this.state.branches = await this.orm.searchRead("res.branch", [], ["id", "name"]);
+            await this.loadTopProducts();
+        });
+    }
+
+    async onFilterChange() {
+        await this.loadTopProducts();
+    }
+
+    async onBranchChange(ev) {
+        this.state.branchId = ev.target.value ? parseInt(ev.target.value) : false;
+        await this.loadTopProducts();
+    }
+
+    async onChannelChange(ev) {
+        this.state.channelType = ev.target.value || false;
+        await this.loadTopProducts();
+    }
+
+    async onSortByChange(ev) {
+        this.state.sortBy = ev.target.value;
+        await this.loadTopProducts();
+    }
+
+    async loadTopProducts() {
+    const result = await this.orm.readGroup(
+        "sale.report",
+        this.buildDomain(),
+        ["price_subtotal:sum", "product_uom_qty:sum"],
+        ["product_id"],
+        { lazy: false }
+    );
+
+    const metric = this.state.sortBy;
+    const rows = result
+        .filter((r) => r.product_id)
+        .map((r) => ({
+            id: r.product_id[0],
+            name: r.product_id[1],
+            qty: r.product_uom_qty || 0,
+            revenue: r.price_subtotal || 0,
+        }))
+        .sort((a, b) => {
+            const key = metric === "product_uom_qty" ? "qty" : "revenue";
+            return b[key] - a[key];
+        })
+        .slice(0, 20);
+
+    this.state.topProducts = rows;
+}
+
+    formatMoney(value) {
+        return formatFloat(value, { digits: [16, 2] });
+    }
+
+    get channelLabels() {
+        return CHANNEL_LABELS;
+    }
+}
+
+registry.category("actions").add("sale_top_products", TopProductsScreen);
+
+
+
+
+/** @odoo-module **/
+
+import { Component, onWillStart } from "@odoo/owl";
+import { registry } from "@web/core/registry";
+import { useService } from "@web/core/utils/hooks";
+import { formatFloat } from "@web/core/utils/numbers";
+import { useSaleDashboardFilters, CHANNEL_LABELS } from "./sale_dashboard_filters";
+
+export class TopCustomersScreen extends Component {
+    static template = "sale_channel_dashboard.TopCustomers";
+
+    setup() {
+        this.orm = useService("orm");
+        const { state, buildDomain } = useSaleDashboardFilters();
+        this.state = state;
+        this.buildDomain = buildDomain;
+        this.state.sortBy = "price_subtotal"; // or "product_uom_qty"
+        this.state.topCustomers = [];
+
+        onWillStart(async () => {
+            this.state.branches = await this.orm.searchRead("res.branch", [], ["id", "name"]);
+            await this.loadTopCustomers();
+        });
+    }
+
+    async onBranchChange(ev) {
+        this.state.branchId = ev.target.value ? parseInt(ev.target.value) : false;
+        await this.loadTopCustomers();
+    }
+
+    async onChannelChange(ev) {
+        this.state.channelType = ev.target.value || false;
+        await this.loadTopCustomers();
+    }
+
+    async onSortByChange(ev) {
+        this.state.sortBy = ev.target.value;
+        await this.loadTopCustomers();
+    }
+
+    async onFilterChange() {
+        await this.loadTopCustomers();
+    }
+
+    async loadTopCustomers() {
+    const result = await this.orm.readGroup(
+        "sale.report",
+        this.buildDomain(),
+        ["price_subtotal:sum", "product_uom_qty:sum"],
+        ["partner_id"],
+        { lazy: false }
+    );
+
+    const metric = this.state.sortBy;
+    const rows = result
+        .filter((r) => r.partner_id)
+        .map((r) => ({
+            id: r.partner_id[0],
+            name: r.partner_id[1],
+            qty: r.product_uom_qty || 0,
+            revenue: r.price_subtotal || 0,
+        }))
+        .sort((a, b) => {
+            const key = metric === "product_uom_qty" ? "qty" : "revenue";
+            return b[key] - a[key];
+        })
+        .slice(0, 20);
+
+    this.state.topCustomers = rows;
+}
+
+    formatMoney(value) {
+        return formatFloat(value, { digits: [16, 2] });
+    }
+
+    get channelLabels() {
+        return CHANNEL_LABELS;
+    }
+}
+
+registry.category("actions").add("sale_top_customers", TopCustomersScreen);
+
+
+
+/** @odoo-module **/
+
+import { Component, useRef, onWillStart, onMounted, onWillUnmount } from "@odoo/owl";
+import { registry } from "@web/core/registry";
+import { useService } from "@web/core/utils/hooks";
+import { loadJS } from "@web/core/assets";
+import { formatFloat } from "@web/core/utils/numbers";
+import { useSaleDashboardFilters, CHANNEL_LABELS } from "./sale_dashboard_filters";
+
+export class TopProductScreen extends Component {
+    static template = "psn_bakesome_backend_sale_reports.TopProducts";
+
+    setup() {
+        this.orm = useService("orm");
+        const { state, buildDomain } = useSaleDashboardFilters();
+        this.state = state;
+        this.buildDomain = buildDomain;
+        this.state.sortBy = "price_subtotal";
+        this.state.topProducts = [];
+        this.state.summary = { totalQty: 0, totalRevenue: 0 };
+
+        this.barCanvasRef = useRef("barCanvas");
+        this.barChart = null;
+
+        onWillStart(async () => {
+            await loadJS("/web/static/lib/Chart/Chart.js");
+            this.state.branches = await this.orm.searchRead("res.branch", [], ["id", "name"]);
+            await this.loadTopProducts();
+        });
+
+        onMounted(() => {
+            this.renderBarChart();
+        });
+
+        onWillUnmount(() => {
+            this.barChart?.destroy();
+        });
+    }
+
+    async onFilterChange() {
+        await this.loadTopProducts();
+        this.renderBarChart();
+    }
+
+    async onBranchChange(ev) {
+        this.state.branchId = ev.target.value ? parseInt(ev.target.value) : false;
+        await this.loadTopProducts();
+        this.renderBarChart();
+    }
+
+    async onChannelChange(ev) {
+        this.state.channelType = ev.target.value || false;
+        await this.loadTopProducts();
+        this.renderBarChart();
+    }
+
+    async onSortByChange(ev) {
+        this.state.sortBy = ev.target.value;
+        await this.loadTopProducts();
+        this.renderBarChart();
+    }
+
+    async loadTopProducts() {
+        const result = await this.orm.readGroup(
+            "sale.report",
+            this.buildDomain(),
+            ["price_subtotal:sum", "product_uom_qty:sum"],
+            ["product_id"],
+            { lazy: false }
+        );
+
+        const metric = this.state.sortBy;
+        const rows = result
+            .filter((r) => r.product_id)
+            .map((r) => ({
+                id: r.product_id[0],
+                name: r.product_id[1],
+                qty: r.product_uom_qty || 0,
+                revenue: r.price_subtotal || 0,
+                imageUrl: `/web/image/product.product/${r.product_id[0]}/image_128`,
+            }))
+            .sort((a, b) => {
+                const key = metric === "product_uom_qty" ? "qty" : "revenue";
+                return b[key] - a[key];
+            })
+            .slice(0, 20);
+
+        this.state.topProducts = rows;
+        this.state.summary = {
+            totalQty: rows.reduce((sum, r) => sum + r.qty, 0),
+            totalRevenue: rows.reduce((sum, r) => sum + r.revenue, 0),
+        };
+    }
+
+    renderBarChart() {
+        if (!this.barCanvasRef.el) return;
+        this.barChart?.destroy();
+
+        const metric = this.state.sortBy;
+        const key = metric === "product_uom_qty" ? "qty" : "revenue";
+        const top10 = this.state.topProducts.slice(0, 10);
+
+        this.barChart = new Chart(this.barCanvasRef.el, {
+            type: "bar",
+            data: {
+                labels: top10.map((p) => p.name),
+                datasets: [{
+                    label: key === "qty" ? "Quantity" : "Revenue",
+                    data: top10.map((p) => p[key]),
+                    backgroundColor: "#714B67",
+                }],
+            },
+            options: {
+                indexAxis: "y",
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { x: { beginAtZero: true } },
+            },
+        });
+    }
+
+    formatMoney(value) {
+        return formatFloat(value, { digits: [16, 2] });
+    }
+
+    get channelLabels() {
+        return CHANNEL_LABELS;
+    }
+}
+
+registry.category("actions").add("sale_top_products", TopProductScreen);
+
+
+
+setup(){
+    // ...existing state...
+    this.state.chartPage = 0; // 0-indexed: page 0 = ranks 1-10, page 1 = ranks 11-20
+    // ...rest unchanged...
+}
+
+get totalChartPages() {
+    return Math.ceil(this.state.topProducts.length / 10) || 1;
+}
+
+get chartPageLabel() {
+    return `${this.state.chartPage + 1}/${this.totalChartPages}`;
+}
+
+toggleChartPage() {
+    const next = this.state.chartPage + 1;
+    this.state.chartPage = next < this.totalChartPages ? next : 0;
+    this.renderBarChart();
+}
+
+
+
+renderBarChart(){
+    if (!this.barCanvasRef.el) return;
+    this.barChart?.destroy();
+
+    const metric = this.state.sortBy;
+    const key = metric === 'product_uom_qty' ? "qty" : "revenue";
+
+    const start = this.state.chartPage * 10;
+    const pageProducts = this.state.topProducts.slice(start, start + 10);
+
+    this.barChart = new Chart(this.barCanvasRef.el, {
+        type: "bar",
+        data: {
+            labels: pageProducts.map((p) => p.name),
+            datasets: [{
+                label: key === "qty" ? "Quantity" : "Revenue",
+                data: pageProducts.map((p) => p[key]),
+                backgroundColor: "#714B67",
+            }],
+        },
+        options: {
+            indexAxis: "y",
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { x: { beginAtZero: true } },
+        },
+    });
+}
+
+
+
+async onFilterChange(){
+    this.state.chartPage = 0;
+    await this.loadTopProducts();
+    this.renderBarChart();
+}
+async onBranchChange(ev){
+    this.state.chartPage = 0;
+    this.state.branchId = ev.target.value ? parseInt(ev.target.value) : false;
+    await this.loadTopProducts();
+    this.renderBarChart();
+}
+async onChannelChange(ev){
+    this.state.chartPage = 0;
+    this.state.channelType = ev.target.value || false;
+    await this.loadTopProducts();
+    this.renderBarChart();
+}
+async onSortByChange(ev){
+    this.state.chartPage = 0;
+    this.state.sortBy = ev.target.value;
+    await this.loadTopProducts();
+    this.renderBarChart();
+}
+
+
+this.branchCanvasRef = useRef("branchCanvas");
+this.customerTrendCanvasRef = useRef("customerTrendCanvas");
+this.gaugeCanvasRef = useRef("gaugeCanvas");
+this.categoryCanvasRef = useRef("categoryCanvas");
+this.branchChart = null;
+this.customerTrendChart = null;
+this.gaugeChart = null;
+this.categoryChart = null;
+
+// inside the useState({...}) block, add:
+branchMetric: "price_subtotal",
+branchLabels: [],
+branchData: [],
+
+customerTrendLabels: [],
+customerTrendData: [],
+
+customerActivePct: 0,
+
+categoryMetric: "price_subtotal",
+categoryPage: 0,
+categoryRows: [], // full list, paginated client-side like Top Products
+
+
+
+onWillUnmount(() => {
+    this.trendChart?.destroy();
+    this.pieChart?.destroy();
+    this.branchChart?.destroy();
+    this.customerTrendChart?.destroy();
+    this.gaugeChart?.destroy();
+    this.categoryChart?.destroy();
+});
+
+
+async loadAll() {
+    this.state.loading = true;
+    await Promise.all([
+        this.loadKpis(),
+        this.loadChannelTable(),
+        this.loadTrend(),
+        this.loadPie(),
+        this.loadBranchChart(),
+        this.loadCustomerTrend(),
+        this.loadCustomerGauge(),
+        this.loadCategoryChart(),
+    ]);
+    this.state.loading = false;
+}
+
+renderCharts() {
+    this.renderTrendChart();
+    this.renderPieChart();
+    this.renderBranchChart();
+    this.renderCustomerTrendChart();
+    this.renderGaugeChart();
+    this.renderCategoryChart();
+}
+
+
+async loadBranchChart() {
+    const measure = this.state.branchMetric + ":sum";
+    const result = await this.orm.readGroup(
+        "sale.report",
+        this.domain,
+        [measure],
+        ["branch_id"],
+        { lazy: false }
+    );
+    const labels = [];
+    const data = [];
+    for (const row of result) {
+        if (!row.branch_id) continue;
+        labels.push(row.branch_id[1]);
+        data.push(row[this.state.branchMetric] || 0);
+    }
+    this.state.branchLabels = labels;
+    this.state.branchData = data;
+}
+
+async onBranchMetricChange(ev) {
+    this.state.branchMetric = ev.target.value;
+    await this.loadBranchChart();
+    this.renderBranchChart();
+}
+
+renderBranchChart() {
+    if (!this.branchCanvasRef.el) return;
+    this.branchChart?.destroy();
+    this.branchChart = new Chart(this.branchCanvasRef.el, {
+        type: "bar",
+        data: {
+            labels: this.state.branchLabels,
+            datasets: [{
+                label: this.state.branchMetric === "product_uom_qty" ? "Quantity" : "Revenue",
+                data: this.state.branchData,
+                backgroundColor: "#00A09D",
+            }],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true } },
+        },
+    });
+}
+
+
+async loadCustomerTrend() {
+    const result = await this.orm.readGroup(
+        "sale.report",
+        this.domain,
+        ["partner_id:count_distinct"],
+        ["date:month"],
+        { lazy: false }
+    );
+    const rows = result
+        .filter((r) => r["date:month"])
+        .sort((a, b) => (a["date:month"] > b["date:month"] ? 1 : -1));
+    this.state.customerTrendLabels = rows.map((r) => r["date:month"]);
+    this.state.customerTrendData = rows.map((r) => r.partner_id || 0);
+}
+
+renderCustomerTrendChart() {
+    if (!this.customerTrendCanvasRef.el) return;
+    this.customerTrendChart?.destroy();
+    this.customerTrendChart = new Chart(this.customerTrendCanvasRef.el, {
+        type: "line",
+        data: {
+            labels: this.state.customerTrendLabels,
+            datasets: [{
+                label: "Active Customers",
+                data: this.state.customerTrendData,
+                borderColor: "#714B67",
+                backgroundColor: "#714B67",
+                tension: 0.3,
+                fill: false,
+            }],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true } },
+        },
+    });
+}
+
+
+async loadCustomerGauge() {
+    const [activeResult, totalCustomers] = await Promise.all([
+        this.orm.readGroup(
+            "sale.report",
+            this.domain,
+            ["partner_id:count_distinct"],
+            []
+        ),
+        this.orm.searchCount("res.partner", [["customer_rank", ">", 0]]),
+    ]);
+    const activeCustomers = activeResult[0]?.partner_id || 0;
+    this.state.customerActivePct = totalCustomers
+        ? Math.round((activeCustomers / totalCustomers) * 100)
+        : 0;
+}
+
+renderGaugeChart() {
+    if (!this.gaugeCanvasRef.el) return;
+    this.gaugeChart?.destroy();
+    const pct = this.state.customerActivePct;
+    this.gaugeChart = new Chart(this.gaugeCanvasRef.el, {
+        type: "doughnut",
+        data: {
+            labels: ["Active", "Remaining"],
+            datasets: [{
+                data: [pct, 100 - pct],
+                backgroundColor: ["#06C755", "#e9ecef"],
+                borderWidth: 0,
+            }],
+        },
+        options: {
+            circumference: 180,
+            rotation: 270,
+            cutout: "70%",
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false }, tooltip: { enabled: false } },
+        },
+    });
+}
+
+
+async loadCategoryChart() {
+    const measure = this.state.categoryMetric + ":sum";
+    const result = await this.orm.readGroup(
+        "sale.report",
+        this.domain,
+        [measure],
+        ["categ_id"],
+        { lazy: false }
+    );
+    const rows = result
+        .filter((r) => r.categ_id)
+        .map((r) => ({
+            name: r.categ_id[1],
+            value: r[this.state.categoryMetric] || 0,
+        }))
+        .sort((a, b) => b.value - a.value);
+    this.state.categoryRows = rows;
+}
+
+get totalCategoryPages() {
+    return Math.ceil(this.state.categoryRows.length / 10) || 1;
+}
+
+get categoryPageLabel() {
+    return `${this.state.categoryPage + 1}/${this.totalCategoryPages}`;
+}
+
+toggleCategoryPage() {
+    const next = this.state.categoryPage + 1;
+    this.state.categoryPage = next < this.totalCategoryPages ? next : 0;
+    this.renderCategoryChart();
+}
+
+async onCategoryMetricChange(ev) {
+    this.state.categoryMetric = ev.target.value;
+    await this.loadCategoryChart();
+    this.renderCategoryChart();
+}
+
+renderCategoryChart() {
+    if (!this.categoryCanvasRef.el) return;
+    this.categoryChart?.destroy();
+    const start = this.state.categoryPage * 10;
+    const page = this.state.categoryRows.slice(start, start + 10);
+    this.categoryChart = new Chart(this.categoryCanvasRef.el, {
+        type: "bar",
+        data: {
+            labels: page.map((c) => c.name),
+            datasets: [{
+                label: this.state.categoryMetric === "product_uom_qty" ? "Quantity" : "Revenue",
+                data: page.map((c) => c.value),
+                backgroundColor: "#F0AD4E",
+            }],
+        },
+        options: {
+            indexAxis: "y",
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { x: { beginAtZero: true } },
+        },
+    });
+}
+
+
+
+

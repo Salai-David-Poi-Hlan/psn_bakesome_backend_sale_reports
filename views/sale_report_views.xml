@@ -1,0 +1,283 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ============================================================
+         Search view — Source / Date Day / Hour filters + group-bys
+         ============================================================ -->
+    <record id="view_order_product_search_source_date" model="ir.ui.view">
+        <field name="name">sale.report.search.source.date</field>
+        <field name="model">sale.report</field>
+        <field name="inherit_id" ref="sale.view_order_product_search"/>
+        <field name="arch" type="xml">
+            <field name="team_id" position="after">
+                <field name="source_type"/>
+            </field>
+            <filter name="sales_channel" position="after">
+                <filter string="Source" name="group_source_type" context="{'group_by':'source_type'}"/>
+                <filter string="Order Date (Day)" name="group_date_day" context="{'group_by':'date_day'}"/>
+                <filter string="Hour" name="group_hour" context="{'group_by':'hour'}"/>
+            </filter>
+            <filter name="Quotations" position="before">
+                <filter string="Backend Sales" name="filter_backend" domain="[('source_type','=','sale')]"/>
+                <filter string="POS Sales" name="filter_pos" domain="[('source_type','=','pos')]"/>
+            </filter>
+        </field>
+    </record>
+
+    <!-- ============================================================
+         Main list view — Source / Date Day / Hour columns
+         (used by Branch, By Date, By Hour actions)
+         ============================================================ -->
+    <record id="sale_report_view_tree_source_date" model="ir.ui.view">
+        <field name="name">sale.report.view.list.source.date</field>
+        <field name="model">sale.report</field>
+        <field name="inherit_id" ref="sale.sale_report_view_tree"/>
+        <field name="arch" type="xml">
+            <field name="date" position="after">
+                <field name="date_day" optional="hide"/>
+                <field name="hour" optional="hide"/>
+            </field>
+            <field name="order_reference" position="after">
+                <field name="source_type" optional="show"/>
+            </field>
+        </field>
+    </record>
+
+    <!-- ============================================================
+         Branch search + list additions
+         ============================================================ -->
+    <record id="view_order_product_search_branch" model="ir.ui.view">
+        <field name="name">sale.report.search.branch</field>
+        <field name="model">sale.report</field>
+        <field name="inherit_id" ref="sale.view_order_product_search"/>
+        <field name="arch" type="xml">
+            <field name="team_id" position="after">
+                <field name="branch_id"/>
+            </field>
+            <filter name="sales_channel" position="after">
+                <filter string="Branch" name="branch_id" context="{'group_by':'branch_id'}"/>
+            </filter>
+        </field>
+    </record>
+
+    <record id="sale_report_view_tree_branch" model="ir.ui.view">
+        <field name="name">sale.report.view.list.branch</field>
+        <field name="model">sale.report</field>
+        <field name="inherit_id" ref="sale.sale_report_view_tree"/>
+        <field name="arch" type="xml">
+            <field name="team_id" position="after">
+                <field name="branch_id" optional="show"/>
+            </field>
+        </field>
+    </record>
+
+    <!-- ============================================================
+         Dedicated Top Selling Products views (list = default, sorted by qty)
+         Standalone views — NOT inherits — so they don't affect
+         the shared sale_report_view_tree used elsewhere.
+         ============================================================ -->
+    <record id="sale_report_view_tree_top_products" model="ir.ui.view">
+        <field name="name">sale.report.view.list.top.products</field>
+        <field name="model">sale.report</field>
+        <field name="arch" type="xml">
+            <list string="Top Selling Products" default_order="product_uom_qty desc" create="false" edit="false">
+                <field name="product_id"/>
+                <field name="categ_id" optional="show"/>
+                <field name="product_uom_qty" string="Qty Sold" sum="Total Qty"/>
+                <field name="price_total" optional="show" sum="Total Revenue"/>
+                <field name="source_type" optional="show"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="sale_report_view_pivot_top_products" model="ir.ui.view">
+        <field name="name">sale.report.view.pivot.top.products</field>
+        <field name="model">sale.report</field>
+        <field name="arch" type="xml">
+            <pivot string="Top Selling Products" sample="1">
+                <field name="product_id" type="row"/>
+                <field name="product_uom_qty" type="measure"/>
+                <field name="price_total" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <!-- ============================================================
+         Actions
+         ============================================================ -->
+
+    <!-- Sales Analysis By Branch -->
+    <record id="action_order_report_branch" model="ir.actions.act_window">
+        <field name="name">Sales Analysis By Branch</field>
+        <field name="res_model">sale.report</field>
+        <field name="view_mode">pivot,graph,list</field>
+        <field name="view_id" ref="sale.sale_report_graph_bar"/>
+        <field name="search_view_id" ref="sale.view_order_product_search"/>
+        <field name="domain">[('state', 'not in', ('draft', 'sent', 'cancel'))]</field>
+        <field name="context">{'group_by': 'branch_id', 'search_default_filter_order_date': 1}</field>
+    </record>
+
+    <!-- Sales Analysis By Date -->
+    <record id="action_order_report_by_date" model="ir.actions.act_window">
+        <field name="name">Sales Analysis By Date</field>
+        <field name="res_model">sale.report</field>
+        <field name="view_mode">graph,pivot,list</field>
+        <field name="search_view_id" ref="sale.view_order_product_search"/>
+        <field name="domain">[('state', 'not in', ('draft', 'sent', 'cancel'))]</field>
+        <field name="context">{'group_by': 'date_day', 'search_default_filter_order_date': 1}</field>
+    </record>
+
+    <!-- Sales Analysis By Hour -->
+    <record id="action_order_report_by_hour" model="ir.actions.act_window">
+        <field name="name">Sales Analysis By Hour</field>
+        <field name="res_model">sale.report</field>
+        <field name="view_mode">graph,pivot,list</field>
+        <field name="search_view_id" ref="sale.view_order_product_search"/>
+        <field name="domain">[('state', 'not in', ('draft', 'sent', 'cancel'))]</field>
+        <field name="context">{'group_by': 'hour', 'search_default_filter_order_date': 1}</field>
+    </record>
+
+    <!-- Top Selling Products (all sources) -->
+    <record id="action_order_report_top_products" model="ir.actions.act_window">
+        <field name="name">Top Selling Products</field>
+        <field name="res_model">sale.report</field>
+        <field name="view_mode">list,pivot,graph</field>
+        <field name="search_view_id" ref="sale.view_order_product_search"/>
+        <field name="domain">[
+            ('state', 'not in', ('draft', 'sent', 'cancel')),
+            ('product_tmpl_id.type', '=', 'consu')
+        ]</field>
+        <field name="context">{'group_by': 'product_id', 'search_default_filter_order_date': 1}</field>
+    </record>
+
+    <record id="action_order_report_top_products_view_list" model="ir.actions.act_window.view">
+        <field name="sequence" eval="1"/>
+        <field name="view_mode">list</field>
+        <field name="view_id" ref="sale_report_view_tree_top_products"/>
+        <field name="act_window_id" ref="action_order_report_top_products"/>
+    </record>
+
+    <record id="action_order_report_top_products_view_pivot" model="ir.actions.act_window.view">
+        <field name="sequence" eval="2"/>
+        <field name="view_mode">pivot</field>
+        <field name="view_id" ref="sale_report_view_pivot_top_products"/>
+        <field name="act_window_id" ref="action_order_report_top_products"/>
+    </record>
+
+    <record id="action_order_report_top_products_view_graph" model="ir.actions.act_window.view">
+        <field name="sequence" eval="3"/>
+        <field name="view_mode">graph</field>
+        <field name="view_id" ref="sale.sale_report_graph_bar"/>
+        <field name="act_window_id" ref="action_order_report_top_products"/>
+    </record>
+
+    <!-- Top Selling Products (POS only) -->
+    <record id="action_order_report_top_products_pos" model="ir.actions.act_window">
+        <field name="name">Top Selling Products (POS)</field>
+        <field name="res_model">sale.report</field>
+        <field name="view_mode">list,pivot,graph</field>
+        <field name="search_view_id" ref="sale.view_order_product_search"/>
+        <field name="domain">[
+            ('source_type', '=', 'pos'),
+            ('state', 'not in', ('draft', 'sent', 'cancel')),
+            ('product_tmpl_id.type', '=', 'consu')
+        ]</field>
+        <field name="context">{'group_by': 'product_id', 'search_default_filter_order_date': 1}</field>
+    </record>
+
+    <record id="action_order_report_top_products_pos_view_list" model="ir.actions.act_window.view">
+        <field name="sequence" eval="1"/>
+        <field name="view_mode">list</field>
+        <field name="view_id" ref="sale_report_view_tree_top_products"/>
+        <field name="act_window_id" ref="action_order_report_top_products_pos"/>
+    </record>
+
+    <record id="action_order_report_top_products_pos_view_pivot" model="ir.actions.act_window.view">
+        <field name="sequence" eval="2"/>
+        <field name="view_mode">pivot</field>
+        <field name="view_id" ref="sale_report_view_pivot_top_products"/>
+        <field name="act_window_id" ref="action_order_report_top_products_pos"/>
+    </record>
+
+    <record id="action_order_report_top_products_pos_view_graph" model="ir.actions.act_window.view">
+        <field name="sequence" eval="3"/>
+        <field name="view_mode">graph</field>
+        <field name="view_id" ref="sale.sale_report_graph_bar"/>
+        <field name="act_window_id" ref="action_order_report_top_products_pos"/>
+    </record>
+
+    <!-- Top Selling Products (Backend Sales only) -->
+    <record id="action_order_report_top_products_sale" model="ir.actions.act_window">
+        <field name="name">Top Selling Products (Backend)</field>
+        <field name="res_model">sale.report</field>
+        <field name="view_mode">list,pivot,graph</field>
+        <field name="search_view_id" ref="sale.view_order_product_search"/>
+        <field name="domain">[
+            ('source_type', '=', 'sale'),
+            ('state', 'not in', ('draft', 'sent', 'cancel')),
+            ('product_tmpl_id.type', '=', 'consu')
+        ]</field>
+        <field name="context">{'group_by': 'product_id', 'search_default_filter_order_date': 1}</field>
+    </record>
+
+    <record id="action_order_report_top_products_sale_view_list" model="ir.actions.act_window.view">
+        <field name="sequence" eval="1"/>
+        <field name="view_mode">list</field>
+        <field name="view_id" ref="sale_report_view_tree_top_products"/>
+        <field name="act_window_id" ref="action_order_report_top_products_sale"/>
+    </record>
+
+    <record id="action_order_report_top_products_sale_view_pivot" model="ir.actions.act_window.view">
+        <field name="sequence" eval="2"/>
+        <field name="view_mode">pivot</field>
+        <field name="view_id" ref="sale_report_view_pivot_top_products"/>
+        <field name="act_window_id" ref="action_order_report_top_products_sale"/>
+    </record>
+
+    <record id="action_order_report_top_products_sale_view_graph" model="ir.actions.act_window.view">
+        <field name="sequence" eval="3"/>
+        <field name="view_mode">graph</field>
+        <field name="view_id" ref="sale.sale_report_graph_bar"/>
+        <field name="act_window_id" ref="action_order_report_top_products_sale"/>
+    </record>
+
+    <!-- ============================================================
+         Menu items
+         ============================================================ -->
+    <menuitem id="menu_report_order_branch"
+              name="By Branch"
+              action="action_order_report_branch"
+              parent="sale.menu_sale_report"
+              sequence="20"/>
+
+    <menuitem id="menu_report_order_by_date"
+              name="By Date"
+              action="action_order_report_by_date"
+              parent="sale.menu_sale_report"
+              sequence="21"/>
+
+    <menuitem id="menu_report_order_by_hour"
+              name="By Hour"
+              action="action_order_report_by_hour"
+              parent="sale.menu_sale_report"
+              sequence="22"/>
+
+    <menuitem id="menu_report_order_top_products"
+              name="Top Selling Products"
+              action="action_order_report_top_products"
+              parent="sale.menu_sale_report"
+              sequence="23"/>
+
+    <menuitem id="menu_report_order_top_products_pos"
+              name="Top Selling Products (POS)"
+              action="action_order_report_top_products_pos"
+              parent="sale.menu_sale_report"
+              sequence="24"/>
+
+    <menuitem id="menu_report_order_top_products_sale"
+              name="Top Selling Products (Backend)"
+              action="action_order_report_top_products_sale"
+              parent="sale.menu_sale_report"
+              sequence="25"/>
+
+</odoo>

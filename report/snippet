@@ -1,0 +1,48 @@
+from odoo import fields, models
+
+
+class SaleReport(models.Model):
+    _inherit = "sale.report"
+
+    source_type = fields.Selection(
+        selection=[('sale', 'Backend Sale'), ('pos', 'POS Sale')],
+        string="Source",
+        readonly=True,
+    )
+    date_day = fields.Date("Date", readonly=True)
+    hour = fields.Integer("Hour of Day", readonly=True, aggregator=None)
+
+    def _select_sale(self):
+        res = super()._select_sale()
+        res += """,
+            'sale' AS source_type,
+            (s.date_order AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Bangkok')::date AS date_day,
+            EXTRACT(HOUR FROM (s.date_order AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Bangkok'))::int AS hour"""
+        return res
+
+    def _group_by_sale(self):
+        res = super()._group_by_sale()
+        res += """,
+            s.date_order"""
+        return res
+
+    def _available_additional_pos_fields(self):
+        res = super()._available_additional_pos_fields()
+        res['branch_id'] = 'COALESCE(pos.branch_id, config.branch_id)'
+        return res
+
+    def _select_pos(self):
+        res = super()._select_pos()
+        res += """,
+            'pos' AS source_type,
+            (pos.date_order AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Bangkok')::date AS date_day,
+            EXTRACT(HOUR FROM (pos.date_order AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Bangkok'))::int AS hour"""
+        return res
+
+    def _group_by_pos(self):
+        res = super()._group_by_pos()
+        res += """,
+            pos.branch_id,
+            config.branch_id,
+            pos.date_order"""
+        return res
