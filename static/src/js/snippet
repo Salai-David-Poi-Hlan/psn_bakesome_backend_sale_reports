@@ -688,4 +688,52 @@ renderCategoryChart() {
 
 
 
+/** @odoo-module **/
+
+import { Component, useState } from "@odoo/owl";
+import { registry } from "@web/core/registry";
+
+// NOTE: adjust these import paths to match the actual filenames of your
+// existing components (whatever you saved blocks 1, 4 and 5 as).
+import { SaleChannelDashboard } from "./sale_channel_dashboard";
+import { TopProductScreen } from "./top_product_screen";
+import { TopCustomersScreen } from "./top_customers_screen";
+
+const MENU_ITEMS = [
+    { id: "dashboard", label: "Channel Dashboard", icon: "fa-th-large" },
+    { id: "products", label: "Top Products", icon: "fa-cubes" },
+    { id: "customers", label: "Top Customers", icon: "fa-users" },
+];
+
+export class SaleReportsApp extends Component {
+    static template = "psn_bakesome_backend_sale_reports.ReportsApp";
+    static components = { SaleChannelDashboard, TopProductScreen, TopCustomersScreen };
+
+    setup() {
+        this.state = useState({
+            activeView: "dashboard", // dashboard | products | customers
+            menuOpen: false,
+        });
+        this.menuItems = MENU_ITEMS;
+    }
+
+    toggleMenu() {
+        this.state.menuOpen = !this.state.menuOpen;
+    }
+
+    closeMenu() {
+        this.state.menuOpen = false;
+    }
+
+    selectView(viewId) {
+        this.state.activeView = viewId;
+        this.state.menuOpen = false;
+    }
+}
+
+// This becomes the single entry point / menu action instead of the 3 separate ones.
+registry.category("actions").add("sale_reports_app", SaleReportsApp);
+
+
+
 

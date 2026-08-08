@@ -18,7 +18,7 @@ export class TopCustomersScreen extends Component{
         this.buildDomain=buildDomain
         this.state.sortBy="price_subtotal"
         this.state.topCustomers=[]
-        this.state.summary={totalQty:0,totalRevenue:0}
+        this.state.summary={totalQty:0,totalRevenue:0,totalAverage:0}
         this.state.chartPage=0
         this.barCanvasRef=useRef("barCanvas")
         this.barChart=null
@@ -142,7 +142,8 @@ export class TopCustomersScreen extends Component{
 
         this.state.summary={
             totalQty:rows.reduce((sum,r)=>sum+r.qty,0),
-            totalRevenue:rows.reduce((sum,r)=>sum+r.revenue,0)
+            totalRevenue:rows.reduce((sum,r)=>sum+r.revenue,0),
+            totalAverage:rows.length>0?rows.reduce((sum,r)=>sum+r.revenue,0)/rows.length:0
     }
     }
 

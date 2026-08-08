@@ -4,7 +4,7 @@
     <t t-name="psn_bakesome_backend_sale_reports.Dashboard" owl="1">
 <div class="o_sale_channel_dashboard o_dashboard_scrollable p-3">
             <div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
-                <div>
+      <div style="margin-left:60px">
                    <img src="/psn_bakesome_backend_sale_reports/static/src/image/bakesome.jpg" style="width:50px;height:50px;border-radius:9999px"/>
                 </div>
                 <h1 class="me-auto mb-0 text-white">Bakesome Sale Channels Dashboard</h1>
@@ -41,6 +41,14 @@
                         </div>
                     </div>
                 </div>
+                 <div class="col-md-3">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-body">
+                            <div class="text-muted small">Net Revenue</div>
+                            <div class="fs-4 fw-bold" t-esc="formatMoney(state.kpis.revenue+state.kpis.discount)"/>
+                        </div>
+                    </div>
+                </div>
                 <div class="col-md-3">
                     <div class="card shadow-sm h-100">
                         <div class="card-body">
@@ -65,6 +73,16 @@
                         </div>
                     </div>
                 </div>
+
+      <div class="col-md-3">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-body">
+                            <div class="text-muted small">Discount Amount</div>
+                            <div class="fs-4 fw-bold" t-esc="formatMoney(state.kpis.discount)"/>
+                        </div>
+                    </div>
+                </div>
+      
             </div>
 
             <div class="card shadow-sm mb-4">
@@ -76,6 +94,8 @@
                                 <th>Channel</th>
                                 <th class="text-end">Untaxed Total</th>
                                 <th class="text-end">Gross Total</th>
+                                <th class="text-end">Net Sale</th>
+                                <th class="text-end">Discount</th>
                                 <th class="text-end">Qty</th>
                                 <th class="text-end"># Orders</th>
                                 <th class="text-end">Avg Order</th>
@@ -86,6 +106,8 @@
                                 <td t-esc="row.label"/>
                                 <td class="text-end" t-esc="formatMoney(row.untaxed)"/>
                                 <td class="text-end" t-esc="formatMoney(row.gross)"/>
+                                <td class="text-end" t-esc="formatMoney(row.gross+row.discount)"/>
+                                <td class="text-end" t-esc="formatMoney(row.discount)"/>
                                 <td class="text-end" t-esc="formatMoney(row.qty)"/>
                                 <td class="text-end" t-esc="row.orders"/>
                                 <td class="text-end"
@@ -96,7 +118,6 @@
                 </div>
             </div>
 
-            <!-- Charts -->
             <div class="row g-3">
                 <div class="col-md-7">
                     <div class="card shadow-sm h-100">
@@ -134,7 +155,7 @@
                         <div class="card-body">
                  <div class="d-flex align-items-center mb-2">
                 <h5 class="card-title mb-0 me-auto">Revenue By Branch</h5>
-                <select class="form from-select form-select-sm w-auto" t-on-change="onBranchMetricChange">
+                <select class="form-select form-select-sm w-auto" t-on-change="onBranchMetricChange">
                     <option value="price_subtotal">Revenue</option>
                     <option value="product_uom_qty">Quantity</option>
                 </select>
@@ -161,7 +182,7 @@
 
               <div class="col-md-6">
                         <div class="card shadow-sm h-100">
-                        <div class="card-body text-center">
+                        <div class="card-body text-left">
                 <h5 class="card-title mb-0 me-auto">Active Customers Percentage</h5>
                  <div style="height:260px;position:relative">
                          <canvas t-ref="gaugeCanvas"/>
@@ -182,7 +203,7 @@
                         <div class="card-body">
                  <div class="d-flex align-items-center mb-2">
                 <h5 class="card-title mb-0 me-auto">By product Category</h5>
-                <select class="form from-select form-select-sm w-auto me-2" t-on-change="onCategoryMetricChange">
+                <select class="form-select form-select-sm w-auto me-2" t-on-change="onCategoryMetricChange">
                     <option value="price_subtotal">Revenue</option>
                     <option value="product_uom_qty">Quantity</option>
                 </select>

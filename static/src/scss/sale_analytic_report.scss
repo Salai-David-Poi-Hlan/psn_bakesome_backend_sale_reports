@@ -1,0 +1,148 @@
+.o_sale_reports_app{
+    position: relative;
+    height: 100%;
+}
+
+.o_sr_hamburger_btn {
+    position: fixed;
+    top: 65px;
+    left: 20px;
+    z-index: 1101;
+    width: 42px;
+    height: 42px;
+    border: none;
+    border-radius: 8px;
+    font-size: 18px;
+    box-shadow: 0 2px 6px rgba(0,0,0,.25);
+    cursor: pointer;
+    background: #fff;
+    color: orange;
+
+    &:hover {
+        background: darken(#714B67, 5%);
+    }
+
+    &.o_sr_hamburger_btn_open {
+        background: orange;
+        color: #fff;
+        display: none;
+    }
+}
+
+.o_sr_backdrop{
+    position: fixed;
+    top:12px;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 1099;
+}
+
+
+.o_sr_sidenav{
+    position:fixed;
+    top:0;
+    left:0;
+    height:100vh;
+    width:30%;
+    min-width:260px;
+    max-width:380px;
+    background:#fff;
+    box-shadow: 3px 0 16px rgba(0,0,0,0.25);
+    z-index:1100;
+    display:flex;
+    flex-direction:column;
+    overflow-y:auto;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease-in-out;
+
+
+    &.o_sr_sidenav_open{
+        transform: translateX(0);
+    }
+}
+
+
+.o_sr_sidenav_header{
+    display: flex;
+    align-items: center;
+    gap:10px;
+    padding:16px;
+    border-bottom:1px solid #eee;
+}
+
+
+.o_sr_logo{
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+
+.o_sr_title{
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-right:auto
+}
+
+
+.o_sr_close_btn{
+    border:none;
+    background:transparent;
+    font-size:18px;
+    color:#666;
+    cursor:pointer;
+
+    &:hover{
+          color:#000;
+    }
+}
+
+.o_sr_menu_list{
+    list-style:none;
+    margin:0;
+    padding:8px 0;
+}
+
+.o_sr_menu_item{
+    display:flex;
+    align-items:center;
+    padding:14px 20px;
+    cursor:pointer;
+    font-size: 0.95rem;
+    color:#333;
+    transition: background 0.15s ease;
+    &:hover{
+        background:#f4f4f5;
+    }
+
+    &.o_sr_menu_item_active{
+        background:orange;
+        color:#fff
+    }
+}
+
+.o_sr_menu_icon{
+    margin-right:10px;
+    width:18px;
+    text-align:center;
+}
+
+.o_sr_content{
+    height:100%;
+    overflow-y:auto;
+}
+
+
+@media(max-width:768px){
+    .o_sr_sidenav{
+        width: 78%;
+        max-width: none;
+    }
+}
+
+
+
+
+
+

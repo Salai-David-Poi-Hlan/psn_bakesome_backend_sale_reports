@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="psn_bakesome_backend_sale_reports.SaleAnalyticsReports" owl="1">
+          <div class="o_sale_reports_app">
+               <button
+    class="o_sr_hamburger_btn"
+    t-att-class="{ 'o_sr_hamburger_btn_open': state.menuOpen }"
+    t-on-click="toggleMenu">
+    <i class="fa fa-bars"/>
+</button>
+
+
+
+               <div t-if="state.menuOpen" class="o_sr_backdrop" t-on-click="closeMenu"/>
+                  
+               <div t-attf-class="o_sr_sidenav {{state.menuOpen?'o_sr_sidenav_open':''}}">
+                    <div class="o_sr_sidenav_header">
+                          <img
+                        src="/psn_bakesome_backend_sale_reports/static/src/image/bakesome.jpg"
+                        class="o_sr_logo"
+                          />
+
+                          <span class="o_sr_title">Bakesome Sale Analytic</span>
+                          <button class="o_sr_close_btn" t-on-click="closeMenu" aria-label="Close Menu">
+
+                            <i class="fa fa-times"/>
+                          </button>
+                    </div>
+
+                    <ul class="o_sr_menu_list">
+              <t t-foreach="menuItems" t-as="item" t-key="item.id">
+                    <li t-attf-class="o_sr_menu_item {{state.activeView === item.id?'o_sr_menu_item_active':''}}" t-on-click="() => this.selectView(item.id)">
+                          <i t-attf-class="fa {{item.icon}} o_sr_menu_icon"/>
+                          <span  t-esc="item.label"/>
+                    </li>
+
+              </t>
+                    </ul>
+               </div>
+
+
+
+               <div class="o_sr_content">
+                     <SaleChannelDashboard t-if="state.activeView === 'dashboard'"/>
+                     <TopProductScreen t-if="state.activeView === 'products'"/>
+                     <TopCustomersScreen t-if="state.activeView === 'customers'"/>
+               </div>
+          </div>
+    </t>
+</templates>

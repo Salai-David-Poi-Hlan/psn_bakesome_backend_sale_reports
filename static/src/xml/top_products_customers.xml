@@ -4,7 +4,9 @@
     <t t-name="psn_bakesome_backend_sale_reports.TopProducts" owl="1">
 <div class="o_sale_channel_dashboard p-3 d-flex flex-column" style="height: calc(100vh - 60px);">           
      <div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
-
+      <div style="margin-left:60px">
+                   <img src="/psn_bakesome_backend_sale_reports/static/src/image/bakesome.jpg" style="width:50px;height:50px;border-radius:9999px"/>
+                </div>
 
                                <h2 class="me-auto mb-0 text-white">Top 20 Products</h2>
                  <div>
@@ -96,6 +98,7 @@
                 </div>
             </div>
 
+
             <div class="mt-auto pt-2 text-muted small text-end">
                 Based on top 20 products in selected range
             </div>
@@ -138,8 +141,8 @@
 
 <t t-name="psn_bakesome_backend_sale_reports.TopCustomers" owl="1">
 <div class="o_sale_channel_dashboard p-3 d-flex flex-column" style="height: calc(100vh - 60px);">   
-             <div class="d-flex align-items-end gap-3 mb-3 flex-wrap">
-                  <div>
+             <div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
+                  <div style="margin-left:60px">
                    <img src="/psn_bakesome_backend_sale_reports/static/src/image/bakesome.jpg" style="width:50px;height:50px;border-radius:9999px"/>
                 </div>
                                <h2 class="me-auto mb-0 text-white">Top 20 Customers</h2>

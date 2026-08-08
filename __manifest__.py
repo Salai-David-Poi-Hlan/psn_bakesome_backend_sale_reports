@@ -13,7 +13,8 @@ Bakesome  backend Sale Analytic Reports
             'website_sale',
             'point_of_sale',
             'pos_sale',
-            'onebiz_line_oa_order'
+            'onebiz_line_oa_order',
+            'purchase'
     ],
     'data': [
         ''
