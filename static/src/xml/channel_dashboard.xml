@@ -15,7 +15,7 @@
                 <select class="form-select form-select-sm" t-on-change="onBranchChange">
 
                     <option value="">All Branches</option>
-                    <t t-foreach="state.branches" t-as="branch" t-key="branch.id">
+                    <t t-foreach="filters.branches" t-as="branch" t-key="branch.id">
                          <option t-att-value="branch.id" t-esc="branch.name"/>
                     </t>
                 </select>
@@ -23,12 +23,12 @@
                 <div>
                     <label class="form-label mb-0">From</label>
                     <input type="date" class="form-control form-control-sm"
-                        t-model="state.dateFrom" t-on-change="onDateChange"/>
+                        t-model="filters.dateFrom" t-on-change="onDateChange"/>
                 </div>
                 <div>
                     <label class="form-label mb-0">To</label>
                     <input type="date" class="form-control form-control-sm "
-                        t-model="state.dateTo" t-on-change="onDateChange"/>
+                        t-model="filters.dateTo" t-on-change="onDateChange"/>
                 </div>
             </div>
 
@@ -82,7 +82,7 @@
                         </div>
                     </div>
                 </div>
-      
+
             </div>
 
             <div class="card shadow-sm mb-4">
@@ -171,7 +171,7 @@
                         <div class="card shadow-sm h-100">
                         <div class="card-body">
                 <h5 class="card-title mb-0 me-auto">Active Customer Trend</h5>
-            
+
                  <div style="height:300px">
                       <canvas t-ref="customerTrendCanvas"/>
                  </div>
@@ -191,7 +191,7 @@
                    <t t-esc="state.customerActivePct"/>%
                          </div>
                     </div>
-             
+
                         </div>
                         </div>
                   </div>
@@ -217,13 +217,7 @@
                         </div>
                         </div>
                   </div>
-
-
-
                </div>
-
-
         </div>
     </t>
-
 </templates>

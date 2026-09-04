@@ -1,9 +1,10 @@
-import {Component,onWillStart,useRef,onMounted,onWillUnmount} from "@odoo/owl"
+import {Component,onWillStart,onMounted,useState} from "@odoo/owl"
 import {registry} from "@web/core/registry"
 import {useService} from "@web/core/utils/hooks"
 import {loadJS} from "@web/core/assets"
 import {formatFloat} from "@web/core/utils/numbers"
 import {useSaleDashboardFilters,CHANNEL_LABELS} from './sale_dashboard_filters'
+import {usePageRankedChart} from './sale_dashboard_ranked_chart'
 
 
 
@@ -13,103 +14,75 @@ export class TopCustomersScreen extends Component{
 
     setup(){
         this.orm=useService("orm")
-        const {state,buildDomain}=useSaleDashboardFilters()
-        this.state=state
+        const {state,buildDomain,ready,onDateFieldChange}=useSaleDashboardFilters()
+        this.filters=state
         this.buildDomain=buildDomain
-        this.state.sortBy="price_subtotal"
-        this.state.topCustomers=[]
-        this.state.summary={totalQty:0,totalRevenue:0,totalAverage:0}
-        this.state.chartPage=0
-        this.barCanvasRef=useRef("barCanvas")
-        this.barChart=null
+        this.onDateFieldChange=onDateFieldChange
+        this.state=useState({
+            sortBy:"price_subtotal",topCustomers:[],
+            summary:{
+                totalQty:0,totalRevenue:0,totalAverage:0
+            }
+        })
+       
+        this.chart=usePageRankedChart()
+        this.barCanvasRef=this.chart.canvasRef
         onWillStart(async()=>{
             await loadJS("/web/static/lib/Chart/Chart.js")
-               this.state.branches=await this.orm.searchRead("res.branch",[],["id","name"])
-               await this.loadTopCustomers()
+            await ready
+            await this.loadTopCustomers()
         })
 
-        onMounted(()=>{
-            this.renderbarChart()
-        })
+        onMounted(async()=>{
+                         await this.chart.render(this.state.topCustomers, this.metricKey)
 
-
-        onWillUnmount(()=>{
-            this.barChart?.destroy()
         })
     }
 
-
-
-    get totalChartPages(){
-        return Math.ceil(this.state.topCustomers.length/10) || 1
-    }
-    get chartPageLabel(){
-        return `${this.state.chartPage+1}/${this.totalChartPages}`
+    get metricKey(){
+        return this.state.sortBy==="product_uom_qty"?"qty":"revenue"
     }
 
-
-    toggleChartPage(){
-        const next=this.state.chartPage+1;
-        this.state.chartPage=next<this.totalChartPages?next:0;
-        this.renderbarChart()
+    get channelLabels() {
+        return CHANNEL_LABELS;
     }
 
 
-    renderbarChart(){
-         if (!this.barCanvasRef.el) return
-         this.barChart?.destroy()
-         const metric=this.state.sortBy
-         const key=metric==="product_uom_qty"?"qty":"revenue"
-         const start=this.state.chartPage*10;
-         const pageCustomers=this.state.topCustomers.slice(start,start+10)
-         this.barChart=new Chart(this.barCanvasRef.el,{
-            type:"bar",
-            data:{
-                labels:pageCustomers.map((c)=>c.name),
-                datasets:[{
-                    label:key==="qty"?"Quantity":"Revenue",
-                    data:pageCustomers.map((c)=>c[key]),
-                    backgroundColor:"orange"
-                }]
-            },
-            options:{
-                indexAxis:"y",
-                responsive:true,
-                maintainAspectRatio:false,
-                plugins:{legend:{display:false}},
-                scales:{x:{beginAtZero:true}}
-            } 
-         })
+    async refresh(){
+        this.chart.reset()
+        await this.loadTopCustomers()
+        await this.chart.render(this.state.topCustomers,this.metricKey)
     }
 
 
+    onDateChange(){
+         this.onDateFieldChange(()=>this.refresh());
+    }
+    
     async onBranchChange(ev) {
-                this.state.chartPage=0
-        this.state.branchId = ev.target.value ? parseInt(ev.target.value) : false;
-        await this.loadTopCustomers();
-            this.renderbarChart()
-
+        this.filters.branchId=ev.target.value ? parseInt(ev.target.value) : false
+        await this.refresh()
     }
 
     async onChannelChange(ev) {
-        this.state.chartPage=0
-        this.state.channelType = ev.target.value || false;
-        await this.loadTopCustomers();
-        this.renderbarChart()
+        this.filters.channelType=ev.target.value || false
+        await this.refresh()
     }
 
     async onSortByChange(ev) {
-        this.state.chartPage=0
         this.state.sortBy = ev.target.value;
-        await this.loadTopCustomers();
-                this.renderbarChart()
-
+        await this.refresh()
     }
 
-    async onFilterChange() {
-                this.state.chartPage=0
-        await this.loadTopCustomers();
-                        this.renderbarChart()
+
+    async toggleChartPage(){
+      await this.chart.toggle(this.state.topCustomers)
+      this.chart.render(this.state.topCustomers,this.metricKey)
+    }
+
+
+    get chartPageLabel(){
+        return this.chart.pagelabel(this.state.topCustomers)
     }
 
     async loadTopCustomers(){
@@ -120,8 +93,7 @@ export class TopCustomersScreen extends Component{
             ["partner_id"],
             {lazy:false}
         )
-
-        const metric=this.state.sortBy
+        const key=this.metricKey
         const rows=result
         .filter((r)=>r.partner_id)
         .map((r)=>({
@@ -131,7 +103,7 @@ export class TopCustomersScreen extends Component{
             revenue:r.price_subtotal || 0
         }))
         .sort((a,b)=>{
-            const key=metric==="product_uom_qty"? "qty":"revenue"
+           
                 return b[key] - a[key];
         })
         .slice(0,20)
@@ -146,14 +118,8 @@ export class TopCustomersScreen extends Component{
             totalAverage:rows.length>0?rows.reduce((sum,r)=>sum+r.revenue,0)/rows.length:0
     }
     }
-
-
     formatMoney(value) {
         return formatFloat(value, { digits: [16, 2] });
-    }
-
-    get channelLabels() {
-        return CHANNEL_LABELS;
     }
 }
 

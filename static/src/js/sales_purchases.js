@@ -1,81 +1,373 @@
-/**@odoo-module**/
-import {Component,useState,useRef,onWillStart,onMounted,onWillUnmount} from '@odoo/owl';
-import {registry} from '@web/core/registry';
-import {useService} from "@web/core/utils/hooks";
-import {loadJS} from "@web/core/assets";
-import {formatFloat} from "@web/core/utils/numbers"
+/** @odoo-module **/
+import { Component, onWillStart,useState,onMounted } from "@odoo/owl";
+import { registry } from "@web/core/registry";
+import { useService } from "@web/core/utils/hooks";
+import {loadJS} from "@web/core/assets"
+import { formatFloat } from "@web/core/utils/numbers";
+import { useSaleDashboardFilters } from "./sale_dashboard_filters";
+import {usePageRankedChart} from './sale_dashboard_ranked_chart'
 
 
 
-const DATE_DEBOUNCE_MS=400
+export class SalesPurchasesScreen extends Component {
+    static template = "psn_bakesome_backend_sale_reports.SalePurchaseReport";
 
-
-
-function today(){
-    return new Date().toISOString().slice(0,10)
-}
-
-function firstDayOfMonth(){
-    const d=new Date()
-    return new Date(d.getFullYear,d.getMonth(),1).toISOString().slice(0,10)
-}
-
-
-
-async function getBranches(){
-    branches=await useService("orm").searchRead("res.branch",[],["id","name"])
-    return branches
-}
-
-
-export class Sales_Purchases extends Component{
-    static template="psn_bakesome_backend_sale_reports"
-
-    setup(){
-        this.orm=useService("orm")
-        this.trendCanvasRef=useRef("trendCanvas")
-        this.pieCanvasRef=useRef("pieCanvas")
-        this.charts={}
-        this._dateChangeTimer=null
-        this.branch=[]
-
-        this.state=useState({
-            dateFrom:firstDayOfMonth(),
-            dateTo:today(),
-            pieMetric:"price_subtotal",
-            graphMetric:"price_subtotal",
-            loading:true,
-            refreshing:false,
-            error:null,
-            kpis:{
-               p_revenue:0,p_qty:0,purchases:0,avgPurchase:0,discount:0,profit_loss:0
+    setup() {
+        this.orm = useService("orm");
+        const { state, buildDomain, buildDomainPurchase,ready,onDateFieldChange } = useSaleDashboardFilters();
+        this.onDateFieldChange=onDateFieldChange
+        this.filters = state;
+        this.buildPurchaseDomain = buildDomainPurchase;
+        this.buildSaleDomain = buildDomain;
+        this.chart=usePageRankedChart()
+        this.productsBarCanvas=this.chart.purchasProductscanvasRef
+        this.saleProductsBarCanvas=this.chart.saleProductscanvasRef
+        this.state = useState({
+            sortBy: "price_total",
+            topVendors: [],
+            topProducts: [],
+            compareTopProductsSale:[],
+            compareTopProductsPurchase:[],
+            topSaleProducts:[],
+            summary: {
+                totalQty: 0, totalRevenue: 0, totalSaleRevenue: 0,
+                totalAverage: 0, totalUntaxed: 0, totalDiscount: 0,
+                totalNet: 0, purchaseOrders: 0,
             },
-        })
-
-
-        onWillStart(async()=>{
-            await loadJS("/web/static/lib/Chart/Chart.js")
-            try{
-                await this.loadAll()
-            }catch(e){
-                console.error(e)
-                this.state.error="Falied to load the dashboard. Please try again"
-            }finally{
-                this.state.loading=false
+            topSummaryOnPurchase:{
+                totalPurchaseQty:0,totalPurchaseRevenue:0,totalSaleQty:0,totalSaleRevenue:0
+            },
+            topSummaryOnSale:{
+                totalPurchaseQty:0,totalPurchaseRevenue:0,totalSaleQty:0,totalSaleRevenue:0
 
             }
         })
+        onWillStart(async () => {
+            await loadJS("/web/static/lib/Chart/Chart.js")
+            await ready
+            await this.loadTopVendorsAndSummary();
+            await this.loadTopProducts();
+            await this.loadTopSaleProducts();
+            await this.laodSaleProducts();
+            await this.laodPurchaseProducts()
+            await this.loadSaleRevenue();
+        });
+        onMounted(async()=>{
+            await this.chart.renderpurchasProducts(this.state.compareTopProductsSale,this.metricKey)
+            await this.chart.renderSaleProducts(this.state.compareTopProductsPurchase,this.metricKey)
+        })
+    }
+
+    async toggleChartPage(){
+        await this.chart.togglePurchase(this.state.compareTopProductsSale)
+    }
+
+
+    async toggleChartPageSale(){
+        await  this.chart.toggleSale(this.state.compareTopProductsSale,this.metricKey)
+
+    }
+
+    get metricKey(){
+        return this.state.sortBy === "qty" ? "qty" : "revenue";
+    }
+
+
+ get chartPageLabelSale(){
+                return this.chart.pagelabelPurchase(this.state.compareTopProductsSale)
+
+    }
+
+    get chartPageLabel(){
+        return this.chart.pagelabelSale(this.state.compareTopProductsPurchase)
+    }
+
+    async refresh() {
+        this.chart.reset()
+        await this.loadTopVendorsAndSummary();
+        await this.loadTopProducts();
+        await this.loadTopSaleProducts();
+        await this.laodSaleProducts();
+        await this.laodPurchaseProducts()
+        await this.loadSaleRevenue()
+        await this.chart.renderpurchasProducts(this.state.compareTopProductsSale,this.metricKey)    
+        await this.chart.renderSaleProducts(this.state.compareTopProductsPurchase,this.metricKey)
+
+    }
+
+    onDateChange() {
+        this.onDateFieldChange(() => this.refresh());
+    }
+
+    async onBranchChange(ev) {
+        this.filters.branchId = ev.target.value ? parseInt(ev.target.value) : false;
+        await this.refresh();
+    }
+
+    async onSortByChange(ev) {
+        this.state.sortBy = ev.target.value;
+        await this.refresh()
+    }
+
+    async loadTopVendorsAndSummary() {
+
+
+        console.log("loadTopVendorsAndSummary");
+        
+        const result = await this.orm.readGroup(
+            "purchase.report",
+            this.buildPurchaseDomain(),
+            ["price_total:sum", "qty_ordered:sum", "untaxed_total:sum", "price_average:sum", "discount_amount:sum", "order_id:count_distinct"],
+            ["partner_id"],
+            { lazy: false }
+        );
+
+        const rows = result
+            .filter((r) => r.partner_id)
+            .map((r) => ({
+                id: r.partner_id[0],
+                name: r.partner_id[1],
+                totalQty: r.qty_ordered || 0,
+                totalRevenue: r.price_total || 0,
+                totalUntaxed: r.untaxed_total || 0,
+                totalAverage: r.price_average || 0,
+                totalDiscount: r.discount_amount || 0,
+                totalNet: (r.price_total || 0) + (r.discount_amount || 0),
+                total_orders: r.order_id || 0,
+            }));
+
+        const metric = this.state.sortBy;
+        const key = metric === "price_total" ? "totalRevenue" : "totalQty";
+        this.state.topVendors = [...rows].sort((a, b) => b[key] - a[key]).slice(0, 20);
+
+        this.state.summary = {
+            ...this.state.summary,
+            totalQty: rows.reduce((sum, r) => sum + r.totalQty, 0),
+            totalRevenue: rows.reduce((sum, r) => sum + r.totalRevenue, 0),
+            totalUntaxed: rows.reduce((sum, r) => sum + r.totalUntaxed, 0),
+            totalAverage: rows.reduce((sum, r) => sum + r.totalAverage, 0),
+            totalDiscount: rows.reduce((sum, r) => sum + r.totalDiscount, 0),
+            totalNet: rows.reduce((sum, r) => sum + r.totalNet, 0),
+            purchaseOrders: rows.reduce((sum, r) => sum + r.total_orders, 0),
+        };
+
+
+        console.log("Done");
+        
+    }
+
+    async laodSaleProducts(){
+
+
+    console.log("laodSaleProducts");
+    
+
+        if(!this.state.topProducts.length){
+            this.state.compareTopProductsSale=[];
+            console.log("Return");
+            return
+        }
+
+
+        const productIds=this.state.topProducts.map((p)=>p.id)
+        const domain=[...this.buildSaleDomain(),["product_id","in",productIds]]
+          const result=await this.orm.readGroup(
+            "sale.report",
+            domain,
+            ["price_total:sum","product_uom_qty:sum"],
+            ["product_id"],
+            {lazy:false}
+          )
+
+          console.log(result);
+          
+   
+          const saleByProductId=new Map(
+            result
+            .filter((r)=>r.product_id)
+            .map((r)=>[
+                r.product_id[0],
+                {
+                    saleQty:r.product_uom_qty || 0,
+                    saleRevenue:r.price_total || 0
+                }
+            ])
+          )
+
+
+          console.log(saleByProductId);
+          
+
+          this.state.compareTopProductsSale = this.state.topProducts.map((p) => ({
+           id: p.id,
+           name: p.name,
+           purchaseQty: p.qty,
+           purchaseRevenue: p.revenue,
+           saleQty: saleByProductId.get(p.id)?.saleQty || 0,
+           saleRevenue: saleByProductId.get(p.id)?.saleRevenue || 0,
+    }))
+    
+    
+    console.log(this.state.compareTopProductsSale);
+    
+     this.state.topSummaryOnPurchase={
+             totalPurchaseQty:this.state.compareTopProductsPurchase.reduce((sum,r)=>sum+r.purchaseQty,0),
+             totalPurchaseRevenue:this.state.compareTopProductsPurchase.reduce((sum,r)=>sum+r.purchaseRevenue,0),
+             totalSaleQty:this.state.compareTopProductsPurchase.reduce((sum,r)=>sum+r.saleQty,0),
+             totalSaleRevenue:this.state.compareTopProductsPurchase.reduce((sum,r)=>sum+r.saleRevenue,0)
+     }
+
+
+     console.log(this.state.topSummaryOnPurchase);
+     
+     console.log("Done");
      
     }
-            get domain(){
-    const domain=[
-        ["date",">=",this.state.dateFrom],
-        ["date","<=",this.state.dateTo],
-        ["state","not in",["draft","cancel"]],
-        ["product_tmpl_id.is_storable","=",true]
-    ]
-    return domain
-}
+
+    async loadSaleRevenue() {
+        const result = await this.orm.readGroup(
+            "sale.report",
+            this.buildSaleDomain(),
+            ["price_total:sum"],
+            [],
+            { lazy: false }
+        );
+        const totalSaleRevenue = result.reduce((sum, r) => sum + (r.price_total || 0), 0);
+        this.state.summary = { ...this.state.summary, totalSaleRevenue };
+    }
+
+    async loadTopProducts() {
+
+        console.log("loadTopProducts");
+        
+        const result = await this.orm.readGroup(
+            "purchase.report",
+            this.buildPurchaseDomain(),
+            ["price_total:sum", "qty_ordered:sum", "discount_amount:sum", "order_id:count_distinct"],
+            ["product_id"],
+            { lazy: false }
+        );
+        console.log(result);
+        
+
+        const metric = this.state.sortBy;
+        const key = metric === "price_total" ? "revenue" : "qty";
+        this.state.topProducts = result
+            .filter((r) => r.product_id)
+            .map((r) => ({
+                id: r.product_id[0],
+                name: r.product_id[1],
+                qty: r.qty_ordered || 0,
+                revenue: r.price_total || 0,
+                discount: r.discount_amount || 0,
+                orders: r.order_id || 0,
+            }))
+            .sort((a, b) => b[key] - a[key])
+            .slice(0, 20);
+            console.log("Done");
+             console.log(this.state.topProducts); 
+            }
 
 
+
+
+    async loadTopSaleProducts(){
+        console.log("loadTopSaleProducts");
+        
+        const result=await this.orm.readGroup(
+            "sale.report",
+            this.buildSaleDomain(),
+            ["price_total:sum","product_uom_qty:sum"],
+            ["product_id"],
+            {lazy:false}
+        )
+        const metric = this.state.sortBy;
+        const key = metric === "price_total" ? "revenue" : "qty";
+
+        this.state.topSaleProducts=result
+        .filter((r)=>r.product_id)
+        .map((r)=>({
+            id:r.product_id[0],
+            name:r.product_id[1],
+            qty:r.product_uom_qty || 0,
+            revenue:r.price_total || 0
+        })).sort((a,b)=>b[key]-a[key])
+        .slice(0,20)     
+     console.log("Done");
+     
+    }
+    async laodPurchaseProducts(){
+        console.log("laodPurchaseProducts");
+                console.log("laodPurchaseProducts");
+        console.log(this.state.topSaleProducts.length);
+        
+        if(!this.state.topSaleProducts.length){
+           this.state.compareTopProductsPurchase=[]
+           console.log("Return");
+           return
+        }
+        const productIds=this.state.topSaleProducts.map((r)=>r.id)
+        console.log(productIds);
+        
+        const domain=[...this.buildPurchaseDomain(),["product_id","in",productIds]]
+        console.log(domain);
+        
+        const result=await this.orm.readGroup(
+            "purchase.report",
+            domain,
+            ["price_total:sum","qty_ordered:sum"],
+            ["product_id"],
+            {lazy:false}
+        )
+        console.log(result);
+        
+        const purchaseByProductId=new Map(
+            result
+            .filter((r)=>r.product_id)
+            .map((r)=>[
+                r.product_id[0],
+                {
+                    purchaseQty:r.qty_ordered || 0,
+                    purchaseRevenue:r.price_total || 0
+                }
+            ])
+        )
+
+
+        console.log(purchaseByProductId);
+        
+
+        
+
+        this.state.compareTopProductsPurchase=this.state.topSaleProducts.map((p)=>({
+            id:p.id,
+            name:p.name,
+            saleQty:p.qty,
+            saleRevenue:p.revenue,
+            purchaseQty:purchaseByProductId.get(p.id)?.purchaseQty || 0,
+            purchaseRevenue:purchaseByProductId.get(p.id)?.purchaseRevenue || 0
+        }))
+
+
+        console.log(this.state.compareTopProductsPurchase);
+        
+
+            this.state.topSummaryOnSale={
+                totalPurchaseQty:this.state.compareTopProductsPurchase.reduce((sum,r)=>sum+r.purchaseQty,0),
+                totalPurchaseRevenue:this.state.compareTopProductsPurchase.reduce((sum,r)=>sum+r.purchaseRevenue,0),
+                totalSaleQty:this.state.compareTopProductsPurchase.reduce((sum,r)=>sum+r.saleQty,0),
+                totalSaleRevenue:this.state.compareTopProductsPurchase.reduce((sum,r)=>sum+r.saleRevenue,0)
+            }
+
+        console.log(this.state.topSummaryOnSale);
+
+            console.log("Done");
+            
+    }
+
+    formatMoney(value) {
+        return formatFloat(value, { digits: [16, 2] });
+    }
 }
+
+registry.category("actions").add("sale_purchase", SalesPurchasesScreen);

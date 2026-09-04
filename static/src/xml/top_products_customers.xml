@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates>
-  
+
     <t t-name="psn_bakesome_backend_sale_reports.TopProducts" owl="1">
-<div class="o_sale_channel_dashboard p-3 d-flex flex-column" style="height: calc(100vh - 60px);">           
+<div class="o_sale_channel_dashboard p-3 d-flex flex-column" style="height: calc(100vh - 60px);">
      <div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
       <div style="margin-left:60px">
                    <img src="/psn_bakesome_backend_sale_reports/static/src/image/bakesome.jpg" style="width:50px;height:50px;border-radius:9999px"/>
@@ -13,7 +13,7 @@
                    <label class="form-label mb-0">Branch</label>
                    <select class="form-select form-select-sm" t-on-change="onBranchChange">
                        <option value="">All Branches</option>
-                         <t t-foreach="state.branches" t-as="branch" t-key="branch.id">
+                         <t t-foreach="filters.branches" t-as="branch" t-key="branch.id">
                             <option t-att-value="branch.id" t-esc="branch.name"/>
                          </t>
                    </select>
@@ -27,19 +27,21 @@
                 <option  value="website">Website</option>
                 <option  value="pos">POS</option>
                 <option  value="line_oa">Line OA</option>
+                <option  value="shopee">Shopee</option>
+
                     </select>
                  </div>
 
                      <div>
                <label class="form-label mb-0">From</label>
                <input type="date" class="form-control form-control-sm"
-                    t-model="state.dateFrom" t-on-change="onFilterChange"
+                    t-model="filters.dateFrom" t-on-change="onDateChange"
                />
             </div>
             <div>
                   <label class="form-label mb-0">To</label>
                   <input type="date" class="form-control form-control-sm"
-                     t-model="state.dateTo" t-on-change="onFilterChange"
+                     t-model="filters.dateTo" t-on-change="onDateChange"
                   />
             </div>
 
@@ -140,7 +142,7 @@
     </t>
 
 <t t-name="psn_bakesome_backend_sale_reports.TopCustomers" owl="1">
-<div class="o_sale_channel_dashboard p-3 d-flex flex-column" style="height: calc(100vh - 60px);">   
+<div class="o_sale_channel_dashboard p-3 d-flex flex-column" style="height: calc(100vh - 60px);">
              <div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
                   <div style="margin-left:60px">
                    <img src="/psn_bakesome_backend_sale_reports/static/src/image/bakesome.jpg" style="width:50px;height:50px;border-radius:9999px"/>
@@ -150,7 +152,7 @@
                    <label class="form-label mb-0">Branch</label>
                    <select class="form-select form-select-sm" t-on-change="onBranchChange">
                        <option value="">All Branches</option>
-                         <t t-foreach="state.branches" t-as="branch" t-key="branch.id">
+                         <t t-foreach="filters.branches" t-as="branch" t-key="branch.id">
                             <option t-att-value="branch.id" t-esc="branch.name"/>
                          </t>
                    </select>
@@ -164,19 +166,20 @@
                 <option  value="website">Website</option>
                 <option  value="pos">POS</option>
                 <option  value="line_oa">Line OA</option>
+                <option  value="shopee">Shopee</option>
                     </select>
                  </div>
 
                      <div>
                <label class="form-label mb-0">From</label>
                <input type="date" class="form-control form-control-sm"
-                    t-model="state.dateFrom" t-on-change="onFilterChange"
+                    t-model="filters.dateFrom" t-on-change="onDateChange"
                />
             </div>
             <div>
                   <label class="form-label mb-0">To</label>
                   <input type="date" class="form-control form-control-sm"
-                     t-model="state.dateTo" t-on-change="onFilterChange"
+                     t-model="filters.dateTo" t-on-change="onDateChange"
                   />
             </div>
 
@@ -193,7 +196,7 @@
                <div class="col-md-8">
                 <div class="card shadow-sm h-100">
                       <div class="card-body">
-      
+
                            <div class="d-flex align-items-center mb-2">
                                 <button class="btn btn-sm btn-outline-secondary" t-on-click="toggleChartPage">
                                 <t t-esc="chartPageLabel"/>
@@ -237,7 +240,7 @@
                           Based on top 20 Customers in selected range
                     </div>
                  </div>
-                     
+
                  </div>
                </div>
           </div>
@@ -268,5 +271,5 @@
     </div>
           </div>
     </t>
-   
+
 </templates>

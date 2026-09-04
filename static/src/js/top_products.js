@@ -1,12 +1,12 @@
 /** @odoo-module **/
 
-import {Component,onWillStart,useRef,onMounted,onWillUnmount} from "@odoo/owl"
+import {Component,onWillStart,onMounted,useState} from "@odoo/owl"
 import {registry} from "@web/core/registry"
 import {useService} from "@web/core/utils/hooks";
 import {loadJS} from "@web/core/assets"
 import {formatFloat} from "@web/core/utils/numbers"
 import { useSaleDashboardFilters,CHANNEL_LABELS } from "./sale_dashboard_filters";
-
+import {usePageRankedChart} from './sale_dashboard_ranked_chart'
 
 export class TopProductScreen extends Component{
      
@@ -14,76 +14,79 @@ export class TopProductScreen extends Component{
 
     setup(){
        this.orm=useService("orm");
-       const {state,buildDomain}=useSaleDashboardFilters()
-       this.state=state
+       const {state,buildDomain,ready,onDateFieldChange}=useSaleDashboardFilters()
+       this.filters=state
+       this.onDateFieldChange=onDateFieldChange
        this.buildDomain=buildDomain
-       this.state.sortBy="price_subtotal";
-       this.state.topProducts=[]
-       this.state.summary={totalQty:0,totalRevenue:0,totalAverage:0}
-       this.state.chartPage=0
-       this.barCanvasRef=useRef("barCanvas")
-       this.barChart=null
+      this.state=useState({
+            sortBy:"price_subtotal",
+            topProducts:[],
+            summary:{
+                totalQty:0,totalRevenue:0,totalAverage:0
+            }
+        })
+        this.chart=usePageRankedChart()
+       this.barCanvasRef=this.chart.canvasRef
   
        onWillStart(async ()=>{
         await loadJS("/web/static/lib/Chart/Chart.js")
-        this.state.branches=await this.orm.searchRead("res.branch",[],["id","name"])
+        await ready
          await this.loadTopProducts()
        })
 
-       onMounted(()=>{
-        this.renderBarChart()
-       })
-
-       onWillUnmount(()=>{
-        this.barChart?.destroy()
+       onMounted(async()=>{
+          await this.chart.render(this.state.topProducts, this.metricKey)
        })
     }
 
-    get totalChartPages(){
-        return Math.ceil(this.state.topProducts.length/10) || 1
+    
+
+    get metricKey() {
+        return this.state.sortBy === "product_uom_qty" ? "qty" : "revenue";
     }
 
-
-    get chartPageLabel(){
-        return `${this.state.chartPage +1}/${this.totalChartPages}`
+    get channelLabels() {
+        return CHANNEL_LABELS;
     }
 
-
-    toggleChartPage(){
-        const next=this.state.chartPage+1;
-        this.state.chartPage=next <this.totalChartPages?next:0;
-        this.renderBarChart()
+    async refresh() {
+        this.chart.reset();
+        await this.loadTopProducts();
+        await this.chart.render(this.state.topProducts, this.metricKey);
     }
 
-    async onFilterChange(){
-        this.state.chartPage=0
-        await this.loadTopProducts()
-        this.renderBarChart()
-    }
-    async onBranchChange(ev){
-        this.state.chartPage=0
-        this.state.branchId=ev.target.value ? parseInt(ev.target.value) : false
-        await this.loadTopProducts()
-        this.renderBarChart()
+    onDateChange() {
+        
+        this.onDateFieldChange(() => this.refresh());
     }
 
-
-    async onChannelChange(ev){
-        this.state.chartPage=0
-        this.state.channelType=ev.target.value  || false
-        await this.loadTopProducts()
-        this.renderBarChart()
+    async onBranchChange(ev) {
+        this.filters.branchId = ev.target.value ? parseInt(ev.target.value) : false;
+        await this.refresh();
     }
 
+    async onChannelChange(ev) {
+        this.filters.channelType = ev.target.value || false;
+        await this.refresh();
+    }
 
-    async onSortByChange(ev){
-        this.state.chartPage=0
-        this.state.sortBy=ev.target.value
-        await this.loadTopProducts()
-        this.renderBarChart()
+    async onSortByChange(ev) {
+        this.state.sortBy = ev.target.value;
+        await this.refresh();
+    }
+
+    async toggleChartPage() {
+       await this.chart.toggle(this.state.topProducts);
+        this.chart.render(this.state.topProducts, this.metricKey);
+    }
+
+    get chartPageLabel() {
+        return this.chart.pagelabel(this.state.topProducts);
     }
 
      async loadTopProducts(){
+            console.log("Load TOp Products");
+            
             const result=await this.orm.readGroup(
                 "sale.report",
                 this.buildDomain(),
@@ -92,7 +95,7 @@ export class TopProductScreen extends Component{
                 {lazy:false}
             );
 
-
+            
             const metric=this.state.sortBy;
             const rows=result.filter((r)=>r.product_id)
             .map((r)=>({
@@ -108,7 +111,8 @@ export class TopProductScreen extends Component{
             })
             .slice(0,20);
             this.state.topProducts=rows
-
+        
+            
             this.state.summary={
                 totalQty:rows.reduce((sum,r)=>sum+r.qty,0),
                 totalRevenue:rows.reduce((sum,r)=>sum+r.revenue,0),
@@ -117,46 +121,10 @@ export class TopProductScreen extends Component{
        }
 
 
-
-       renderBarChart(){
-          if (!this.barCanvasRef.el) return 
-          this.barChart?.destroy()
-
-          const metric=this.state.sortBy
-          const key=metric==='product_uom_qty'?"qty":"revenue"
-          const start=this.state.chartPage *10;
-          const pageProducts=this.state.topProducts.slice(start,start+10)
-      
-
-          this.barChart=new Chart(this.barCanvasRef.el,{
-            type:"bar",
-            data:{
-                labels:pageProducts.map((p)=>p.name),
-                datasets:[{
-                    label:key==="qty"?"Quantity":"Revenue",
-                    data:pageProducts.map((p)=>p[key]),
-                    backgroundColor: "orange",
-                }],
-            },
-            options:{
-                indexAxis:"y",
-                responsive:true,
-                maintainAspectRatio:false,
-                plugins:{legend:{display:false}},
-                scales:{x:{beginAtZero:true}}
-            }
-          })
-       }
-
-
        formatMoney(value){
         return formatFloat(value,{digits:[16,2]})
        }
 
-
-       get channelLabels(){
-        return CHANNEL_LABELS
-       }
 }
 
 

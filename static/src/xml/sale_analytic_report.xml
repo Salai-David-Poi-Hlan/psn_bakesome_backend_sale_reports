@@ -44,6 +44,7 @@
                      <SaleChannelDashboard t-if="state.activeView === 'dashboard'"/>
                      <TopProductScreen t-if="state.activeView === 'products'"/>
                      <TopCustomersScreen t-if="state.activeView === 'customers'"/>
+                     <SalesPurchasesScreen t-if="state.activeView ==='sale_purchase'"/>
                </div>
           </div>
     </t>
