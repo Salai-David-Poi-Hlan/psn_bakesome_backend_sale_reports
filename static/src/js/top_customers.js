@@ -89,7 +89,7 @@ export class TopCustomersScreen extends Component{
         const result=await this.orm.readGroup(
             "sale.report",
             this.buildDomain(),
-            ["price_subtotal:sum","product_uom_qty:sum"],
+            ["price_total:sum","product_uom_qty:sum"],
             ["partner_id"],
             {lazy:false}
         )
@@ -100,7 +100,7 @@ export class TopCustomersScreen extends Component{
             id:r.partner_id[0],
             name:r.partner_id[1],
             qty:r.product_uom_qty || 0,
-            revenue:r.price_subtotal || 0
+            revenue:r.price_total || 0
         }))
         .sort((a,b)=>{
            

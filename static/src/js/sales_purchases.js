@@ -22,6 +22,7 @@ export class SalesPurchasesScreen extends Component {
         this.chart=usePageRankedChart()
         this.productsBarCanvas=this.chart.purchasProductscanvasRef
         this.saleProductsBarCanvas=this.chart.saleProductscanvasRef
+        this.vendorCanvas=this.chart.vendorCanvasRef
         this.state = useState({
             sortBy: "price_total",
             topVendors: [],
@@ -51,21 +52,28 @@ export class SalesPurchasesScreen extends Component {
             await this.laodSaleProducts();
             await this.laodPurchaseProducts()
             await this.loadSaleRevenue();
+        
         });
         onMounted(async()=>{
             await this.chart.renderpurchasProducts(this.state.compareTopProductsSale,this.metricKey)
             await this.chart.renderSaleProducts(this.state.compareTopProductsPurchase,this.metricKey)
+            await this.chart.renderVendorSupplier(this.state.topVendors,this.metricKey)
         })
     }
 
     async toggleChartPage(){
-        await this.chart.togglePurchase(this.state.compareTopProductsSale)
+        await this.chart.togglePurchase(this.state.compareTopProductsSale,this.metricKey)
+        this.chart.renderpurchasProducts(this.state.compareTopProductsSale,this.metricKey)
     }
-
 
     async toggleChartPageSale(){
         await  this.chart.toggleSale(this.state.compareTopProductsSale,this.metricKey)
+        this.chart.renderSaleProducts(this.state.compareTopProductsPurchase,this.metricKey)
+    }
 
+    async toggleChartPageVendor(){
+        await this.chart.toggleVendor(this.state.topVendors,this.metricKey)
+        this.chart.renderVendorSupplier(this.state.topVendors,this.metricKey)
     }
 
     get metricKey(){
@@ -73,17 +81,22 @@ export class SalesPurchasesScreen extends Component {
     }
 
 
- get chartPageLabelSale(){
-                return this.chart.pagelabelPurchase(this.state.compareTopProductsSale)
-
-    }
-
-    get chartPageLabel(){
+    get chartPageLabelSale(){
         return this.chart.pagelabelSale(this.state.compareTopProductsPurchase)
     }
 
+    get chartPageLabel(){
+        return this.chart.pagelabelPurchase(this.state.compareTopProductsSale)
+    }
+
+
+    get chartPageVendor(){
+        return this.chart.vendorLabel(this.state.topVendors)
+    }
+
     async refresh() {
-        this.chart.reset()
+        this.chart.resetPurchase();
+        this.chart.resetSale();
         await this.loadTopVendorsAndSummary();
         await this.loadTopProducts();
         await this.loadTopSaleProducts();
@@ -92,7 +105,6 @@ export class SalesPurchasesScreen extends Component {
         await this.loadSaleRevenue()
         await this.chart.renderpurchasProducts(this.state.compareTopProductsSale,this.metricKey)    
         await this.chart.renderSaleProducts(this.state.compareTopProductsPurchase,this.metricKey)
-
     }
 
     onDateChange() {
@@ -111,9 +123,6 @@ export class SalesPurchasesScreen extends Component {
 
     async loadTopVendorsAndSummary() {
 
-
-        console.log("loadTopVendorsAndSummary");
-        
         const result = await this.orm.readGroup(
             "purchase.report",
             this.buildPurchaseDomain(),
@@ -152,19 +161,13 @@ export class SalesPurchasesScreen extends Component {
         };
 
 
-        console.log("Done");
         
     }
 
     async laodSaleProducts(){
 
-
-    console.log("laodSaleProducts");
-    
-
         if(!this.state.topProducts.length){
             this.state.compareTopProductsSale=[];
-            console.log("Return");
             return
         }
 
@@ -179,7 +182,6 @@ export class SalesPurchasesScreen extends Component {
             {lazy:false}
           )
 
-          console.log(result);
           
    
           const saleByProductId=new Map(
@@ -194,10 +196,6 @@ export class SalesPurchasesScreen extends Component {
             ])
           )
 
-
-          console.log(saleByProductId);
-          
-
           this.state.compareTopProductsSale = this.state.topProducts.map((p) => ({
            id: p.id,
            name: p.name,
@@ -208,19 +206,14 @@ export class SalesPurchasesScreen extends Component {
     }))
     
     
-    console.log(this.state.compareTopProductsSale);
     
      this.state.topSummaryOnPurchase={
-             totalPurchaseQty:this.state.compareTopProductsPurchase.reduce((sum,r)=>sum+r.purchaseQty,0),
-             totalPurchaseRevenue:this.state.compareTopProductsPurchase.reduce((sum,r)=>sum+r.purchaseRevenue,0),
-             totalSaleQty:this.state.compareTopProductsPurchase.reduce((sum,r)=>sum+r.saleQty,0),
-             totalSaleRevenue:this.state.compareTopProductsPurchase.reduce((sum,r)=>sum+r.saleRevenue,0)
+        ...this.state.topSummaryOnPurchase,
+             totalPurchaseQty:this.state.compareTopProductsSale.reduce((sum,r)=>sum+r.purchaseQty,0),
+             totalPurchaseRevenue:this.state.compareTopProductsSale.reduce((sum,r)=>sum+r.purchaseRevenue,0),
+             totalSaleQty:this.state.compareTopProductsSale.reduce((sum,r)=>sum+r.saleQty,0),
+             totalSaleRevenue:this.state.compareTopProductsSale.reduce((sum,r)=>sum+r.saleRevenue,0)
      }
-
-
-     console.log(this.state.topSummaryOnPurchase);
-     
-     console.log("Done");
      
     }
 
@@ -238,7 +231,6 @@ export class SalesPurchasesScreen extends Component {
 
     async loadTopProducts() {
 
-        console.log("loadTopProducts");
         
         const result = await this.orm.readGroup(
             "purchase.report",
@@ -247,7 +239,6 @@ export class SalesPurchasesScreen extends Component {
             ["product_id"],
             { lazy: false }
         );
-        console.log(result);
         
 
         const metric = this.state.sortBy;
@@ -264,15 +255,16 @@ export class SalesPurchasesScreen extends Component {
             }))
             .sort((a, b) => b[key] - a[key])
             .slice(0, 20);
-            console.log("Done");
-             console.log(this.state.topProducts); 
+           console.log("Top Purchase Products: "+this.state.topProducts.reduce((sum,r)=>sum+r.revenue,0));
+            console.log("Top Purchase Products: "+this.state.topProducts.reduce((sum,r)=>sum+r.qty,0));
+
+           
             }
 
 
 
 
     async loadTopSaleProducts(){
-        console.log("loadTopSaleProducts");
         
         const result=await this.orm.readGroup(
             "sale.report",
@@ -292,26 +284,23 @@ export class SalesPurchasesScreen extends Component {
             qty:r.product_uom_qty || 0,
             revenue:r.price_total || 0
         })).sort((a,b)=>b[key]-a[key])
-        .slice(0,20)     
-     console.log("Done");
-     
-    }
-    async laodPurchaseProducts(){
-        console.log("laodPurchaseProducts");
-                console.log("laodPurchaseProducts");
-        console.log(this.state.topSaleProducts.length);
+        .slice(0,20)  
         
+        console.log("Top Products: "+this.state.topSaleProducts.reduce((sum,r)=>sum+r.revenue,0));
+                console.log("Top Products: "+this.state.topSaleProducts.reduce((sum,r)=>sum+r.qty,0));
+
+    }
+
+
+
+    async laodPurchaseProducts(){
+ 
         if(!this.state.topSaleProducts.length){
            this.state.compareTopProductsPurchase=[]
-           console.log("Return");
            return
         }
         const productIds=this.state.topSaleProducts.map((r)=>r.id)
-        console.log(productIds);
-        
         const domain=[...this.buildPurchaseDomain(),["product_id","in",productIds]]
-        console.log(domain);
-        
         const result=await this.orm.readGroup(
             "purchase.report",
             domain,
@@ -319,7 +308,7 @@ export class SalesPurchasesScreen extends Component {
             ["product_id"],
             {lazy:false}
         )
-        console.log(result);
+
         
         const purchaseByProductId=new Map(
             result
@@ -333,12 +322,8 @@ export class SalesPurchasesScreen extends Component {
             ])
         )
 
-
-        console.log(purchaseByProductId);
         
-
         
-
         this.state.compareTopProductsPurchase=this.state.topSaleProducts.map((p)=>({
             id:p.id,
             name:p.name,
@@ -347,24 +332,15 @@ export class SalesPurchasesScreen extends Component {
             purchaseQty:purchaseByProductId.get(p.id)?.purchaseQty || 0,
             purchaseRevenue:purchaseByProductId.get(p.id)?.purchaseRevenue || 0
         }))
-
-
-        console.log(this.state.compareTopProductsPurchase);
         
-
             this.state.topSummaryOnSale={
+                ...this.state.topSummaryOnSale,
                 totalPurchaseQty:this.state.compareTopProductsPurchase.reduce((sum,r)=>sum+r.purchaseQty,0),
                 totalPurchaseRevenue:this.state.compareTopProductsPurchase.reduce((sum,r)=>sum+r.purchaseRevenue,0),
                 totalSaleQty:this.state.compareTopProductsPurchase.reduce((sum,r)=>sum+r.saleQty,0),
                 totalSaleRevenue:this.state.compareTopProductsPurchase.reduce((sum,r)=>sum+r.saleRevenue,0)
-            }
-
-        console.log(this.state.topSummaryOnSale);
-
-            console.log("Done");
-            
+            }            
     }
-
     formatMoney(value) {
         return formatFloat(value, { digits: [16, 2] });
     }

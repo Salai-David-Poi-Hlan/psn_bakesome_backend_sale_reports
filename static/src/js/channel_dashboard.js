@@ -199,7 +199,7 @@ export class SaleChannelDashboard extends Component {
         const result = await this.orm.readGroup(
             "sale.report",
             this.domain,
-            ["price_subtotal:sum"],
+            ["price_total:sum"],
             ["channel_type", "date:month"],
             { lazy: false }
         );
@@ -210,7 +210,7 @@ export class SaleChannelDashboard extends Component {
             const channel = row.channel_type;
             if (!month || !channel) continue;
             monthsSet.add(month);
-            byChannel[channel][month] = (byChannel[channel][month] || 0) + (row.price_subtotal || 0);
+            byChannel[channel][month] = (byChannel[channel][month] || 0) + (row.price_total || 0);
         }
         const months = Array.from(monthsSet).sort();
         this.state.trendLabels = months;

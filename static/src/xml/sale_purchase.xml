@@ -207,39 +207,113 @@
         </div>
     </div>
 
-       <div class="row g-3 mb-3">
-         <div class="col-md-6">
-                <div class="card shadow-sm h-200">
-               <div class="card-body d-flex flex-column">
-
+        <div class="row g-3 mb-3 mt-3">
+    <div class="col-md-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-body d-flex flex-column">
+                <h5 class="card-title mb-0 me-auto text-center">Top 20 Purchased Products</h5>
                 <div class="d-flex align-items mb-2">
-                    <button class="btn btn-sm btn-outline-secondary" t-on-click="toggleChartPage"> 
-                   <t t-esc="chartPageLabel"/>
+                    <button class="btn btn-sm btn-outline-secondary" t-on-click="toggleChartPage">
+                        <t t-esc="chartPageLabel"/>
                     </button>
                 </div>
-                          <div style='height:640px'>
-                          <canvas t-ref="productsBarCanvas"/>
-                          </div>
-               </div>
+                <div style="height:640px">
+                    <canvas t-ref="productsBarCanvas"/>
                 </div>
-         </div>
-           <div class="col-md-6">
-<div class="card shadow-sm h-200">
-               <div class="card-body d-flex flex-column">
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-body d-flex flex-column">
+                <h5 class="card-title mb-3">Purchase vs Sale Summary</h5>
+                <div class="d-grid gap-3" style="height:640px; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;">
+
+                    <div class="d-flex flex-column justify-content-center align-items-center rounded p-3"
+                         style="background:#fff4e6; border-left:4px solid orange;">
+                        <div class="text-muted small text-uppercase">Purchase Revenue</div>
+                        <div class="fs-2 fw-bold" t-esc="formatMoney(state.topSummaryOnPurchase.totalPurchaseRevenue)"/>
+                    </div>
+
+                    <div class="d-flex flex-column justify-content-center align-items-center rounded p-3"
+                         style="background:#fff4e6; border-left:4px solid orange;">
+                        <div class="text-muted small text-uppercase">Purchase Quantity</div>
+                        <div class="fs-2 fw-bold" t-esc="formatMoney(state.topSummaryOnPurchase.totalPurchaseQty)"/>
+                    </div>
+
+                    <div class="d-flex flex-column justify-content-center align-items-center rounded p-3"
+                         style="background:#e6f7f5; border-left:4px solid teal;">
+                        <div class="text-muted small text-uppercase">Sale Revenue</div>
+                        <div class="fs-2 fw-bold" t-esc="formatMoney(state.topSummaryOnPurchase.totalSaleRevenue)"/>
+                    </div>
+
+                    <div class="d-flex flex-column justify-content-center align-items-center rounded p-3"
+                         style="background:#e6f7f5; border-left:4px solid teal;">
+                        <div class="text-muted small text-uppercase">Sale Quantity</div>
+                        <div class="fs-2 fw-bold" t-esc="formatMoney(state.topSummaryOnPurchase.totalSaleQty)"/>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+         <div class="row g-3 mb-3">
+   
+     <div class="col-md-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-body d-flex flex-column">
+                <h5 class="card-title mb-3">Sale vs Purchase Summary</h5>
+                <div class="d-grid gap-3" style="height:640px; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;">
+
+                    <div class="d-flex flex-column justify-content-center align-items-center rounded p-3"
+                         style="background:#fff4e6; border-left:4px solid orange;">
+                        <div class="text-muted small text-uppercase">Total Sale Revenue</div>
+                        <div class="fs-2 fw-bold" t-esc="formatMoney(state.topSummaryOnSale.totalSaleRevenue)"/>
+                    </div>
+
+                    <div class="d-flex flex-column justify-content-center align-items-center rounded p-3"
+                         style="background:#fff4e6; border-left:4px solid orange;">
+                        <div class="text-muted small text-uppercase">Total Sale Quantity</div>
+                        <div class="fs-2 fw-bold" t-esc="formatMoney(state.topSummaryOnSale.totalSaleQty)"/>
+                    </div>
+
+                    <div class="d-flex flex-column justify-content-center align-items-center rounded p-3"
+                         style="background:#e6f7f5; border-left:4px solid teal;">
+                        <div class="text-muted small text-uppercase">Total Purchase Revenue</div>
+                        <div class="fs-2 fw-bold" t-esc="formatMoney(state.topSummaryOnSale.totalPurchaseRevenue)"/>
+                    </div>
+
+                    <div class="d-flex flex-column justify-content-center align-items-center rounded p-3"
+                         style="background:#e6f7f5; border-left:4px solid teal;">
+                        <div class="text-muted small text-uppercase">Total Purchase Quantity</div>
+                        <div class="fs-2 fw-bold" t-esc="formatMoney(state.topSummaryOnSale.totalPurchaseQty)"/>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+     <div class="col-md-6">
+        <div class="card shadow-sm" style="min-height: 500px;">
+            <div class="card-body d-flex flex-column">
+                <h5 class="card-title mb-0 me-auto text-center">Top 20 Sale Products</h5>
 
                 <div class="d-flex align-items mb-2">
-                    <button class="btn btn-sm btn-outline-secondary" t-on-click="toggleChartPageSale"> 
-                   <t t-esc="chartPageLabelSale"/>
+                    <button class="btn btn-sm btn-outline-secondary" t-on-click="toggleChartPageSale">
+                        <t t-esc="chartPageLabelSale"/>
                     </button>
                 </div>
-                          <div style='height:640px'>
-                          <canvas t-ref="productsBarCanvas_Sale"/>
-                          </div>
-               </div>
+                <div style="height:640px">
+                    <canvas t-ref="productsBarCanvas_Sale"/>
                 </div>
-         </div>
-
-       </div>
+            </div>
+        </div>
+    </div>
+</div>
 
          </div>
     </t>
