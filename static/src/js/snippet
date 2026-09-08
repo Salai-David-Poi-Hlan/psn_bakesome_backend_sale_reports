@@ -1,320 +1,192 @@
 /** @odoo-module **/
-import { Component, onWillStart,useState,onMounted } from "@odoo/owl";
-import { registry } from "@web/core/registry";
-import { useService } from "@web/core/utils/hooks";
-import {loadJS} from "@web/core/assets"
-import { formatFloat } from "@web/core/utils/numbers";
-import { useSaleDashboardFilters } from "./sale_dashboard_filters";
-import {usePageRankedChart} from './sale_dashboard_ranked_chart'
+import { useState, useRef, onWillUnmount } from "@odoo/owl"
 
+const PAGE_SIZE = 10
 
+// One paged bar-chart "instance": owns its own page counter and Chart.js instance,
+// completely independent of every other chart on the page.
+function createPagedBarChart(canvasRef, { buildDatasets, indexAxis = "y", legend = true }) {
+    const page = useState({ value: 0 })
+    let chartInstance = null
 
-export class SalesPurchasesScreen extends Component {
-    static template = "psn_bakesome_backend_sale_reports.SalePurchaseReport";
-
-    setup() {
-        this.orm = useService("orm");
-        const { state, buildDomain, buildDomainPurchase,ready,onDateFieldChange } = useSaleDashboardFilters();
-        this.onDateFieldChange=onDateFieldChange
-        this.filters = state;
-        this.buildPurchaseDomain = buildDomainPurchase;
-        this.buildSaleDomain = buildDomain;
-        this.chart=usePageRankedChart()
-        this.productsBarCanvas=this.chart.purchasProductscanvasRef
-        this.saleProductsBarCanvas=this.chart.saleProductscanvasRef
-        this.state = useState({
-            sortBy: "price_total",
-            topVendors: [],
-            topProducts: [],
-            compareTopProductsSale:[],
-            compareTopProductsPurchase:[],
-            topSaleProducts:[],
-            summary: {
-                totalQty: 0, totalRevenue: 0, totalSaleRevenue: 0,
-                totalAverage: 0, totalUntaxed: 0, totalDiscount: 0,
-                totalNet: 0, purchaseOrders: 0,
-            },
-            topSummaryOnPurchase:{
-                totalPurchaseQty:0,totalPurchaseRevenue:0,totalSaleQty:0,totalSaleRevenue:0
-            },
-            topSummaryOnSale:{
-                totalPurchaseQty:0,totalPurchaseRevenue:0,totalSaleQty:0,totalSaleRevenue:0
-
-            }
-        })
-        onWillStart(async () => {
-            await loadJS("/web/static/lib/Chart/Chart.js")
-            await ready
-            await this.loadTopVendorsAndSummary();
-            await this.loadTopProducts();
-            await this.loadTopSaleProducts();
-            await this.laodSaleProducts();
-            await this.laodPurchaseProducts()
-            await this.loadSaleRevenue();
-        });
-        onMounted(async()=>{
-            await this.chart.renderpurchasProducts(this.state.compareTopProductsSale,this.metricKey)
-            await this.chart.renderSaleProducts(this.state.compareTopProductsPurchase,this.metricKey)
-        })
+    function totalPages(items) {
+        return Math.ceil(items.length / PAGE_SIZE) || 1
     }
 
-    async toggleChartPage(){
-        await this.chart.togglePurchase(this.state.compareTopProductsPurchase,this.metricKey)
+    function pagelabel(items) {
+        return `${page.value + 1}/${totalPages(items)}`
     }
 
-    async toggleChartPageSale(){
-        await  this.chart.toggleSale(this.state.compareTopProductsSale,this.metricKey)
+    function toggle(items) {
+        const next = page.value + 1
+        page.value = next < totalPages(items) ? next : 0
     }
 
-    get metricKey(){
-        return this.state.sortBy === "qty" ? "qty" : "revenue";
+    function reset() {
+        page.value = 0
     }
 
+    function render(items, metricKey) {
+        if (!canvasRef.el) return
+        if (page.value >= totalPages(items)) page.value = 0
 
- get chartPageLabelSale(){
-        return this.chart.pagelabelPurchase(this.state.compareTopProductsSale)
-    }
+        const start = page.value * PAGE_SIZE
+        const pageItems = items.slice(start, start + PAGE_SIZE)
 
-    get chartPageLabel(){
-        return this.chart.pagelabelSale(this.state.compareTopProductsPurchase)
-    }
+        const data = {
+            labels: pageItems.map((i) => i.name),
+            datasets: buildDatasets(pageItems, metricKey),
+        }
 
-    async refresh() {
-        this.chart.resetPurchase();
-        this.chart.resetSale();
-        await this.loadTopVendorsAndSummary();
-        await this.loadTopProducts();
-        await this.loadTopSaleProducts();
-        await this.laodSaleProducts();
-        await this.laodPurchaseProducts()
-        await this.loadSaleRevenue()
-        await this.chart.renderpurchasProducts(this.state.compareTopProductsSale,this.metricKey)    
-        await this.chart.renderSaleProducts(this.state.compareTopProductsPurchase,this.metricKey)
-    }
-
-    onDateChange() {
-        this.onDateFieldChange(() => this.refresh());
-    }
-
-    async onBranchChange(ev) {
-        this.filters.branchId = ev.target.value ? parseInt(ev.target.value) : false;
-        await this.refresh();
-    }
-
-    async onSortByChange(ev) {
-        this.state.sortBy = ev.target.value;
-        await this.refresh()
-    }
-
-    async loadTopVendorsAndSummary() {
-
-        const result = await this.orm.readGroup(
-            "purchase.report",
-            this.buildPurchaseDomain(),
-            ["price_total:sum", "qty_ordered:sum", "untaxed_total:sum", "price_average:sum", "discount_amount:sum", "order_id:count_distinct"],
-            ["partner_id"],
-            { lazy: false }
-        );
-
-        const rows = result
-            .filter((r) => r.partner_id)
-            .map((r) => ({
-                id: r.partner_id[0],
-                name: r.partner_id[1],
-                totalQty: r.qty_ordered || 0,
-                totalRevenue: r.price_total || 0,
-                totalUntaxed: r.untaxed_total || 0,
-                totalAverage: r.price_average || 0,
-                totalDiscount: r.discount_amount || 0,
-                totalNet: (r.price_total || 0) + (r.discount_amount || 0),
-                total_orders: r.order_id || 0,
-            }));
-
-        const metric = this.state.sortBy;
-        const key = metric === "price_total" ? "totalRevenue" : "totalQty";
-        this.state.topVendors = [...rows].sort((a, b) => b[key] - a[key]).slice(0, 20);
-
-        this.state.summary = {
-            ...this.state.summary,
-            totalQty: rows.reduce((sum, r) => sum + r.totalQty, 0),
-            totalRevenue: rows.reduce((sum, r) => sum + r.totalRevenue, 0),
-            totalUntaxed: rows.reduce((sum, r) => sum + r.totalUntaxed, 0),
-            totalAverage: rows.reduce((sum, r) => sum + r.totalAverage, 0),
-            totalDiscount: rows.reduce((sum, r) => sum + r.totalDiscount, 0),
-            totalNet: rows.reduce((sum, r) => sum + r.totalNet, 0),
-            purchaseOrders: rows.reduce((sum, r) => sum + r.total_orders, 0),
-        };
-
-
-        
-    }
-
-    async laodSaleProducts(){
-
-        if(!this.state.topProducts.length){
-            this.state.compareTopProductsSale=[];
+        if (chartInstance) {
+            chartInstance.data = data
+            chartInstance.update()
             return
         }
 
-
-        const productIds=this.state.topProducts.map((p)=>p.id)
-        const domain=[...this.buildSaleDomain(),["product_id","in",productIds]]
-          const result=await this.orm.readGroup(
-            "sale.report",
-            domain,
-            ["price_total:sum","product_uom_qty:sum"],
-            ["product_id"],
-            {lazy:false}
-          )
-
-          
-   
-          const saleByProductId=new Map(
-            result
-            .filter((r)=>r.product_id)
-            .map((r)=>[
-                r.product_id[0],
-                {
-                    saleQty:r.product_uom_qty || 0,
-                    saleRevenue:r.price_total || 0
-                }
-            ])
-          )
-
-
-          
-
-          this.state.compareTopProductsSale = this.state.topProducts.map((p) => ({
-           id: p.id,
-           name: p.name,
-           purchaseQty: p.qty,
-           purchaseRevenue: p.revenue,
-           saleQty: saleByProductId.get(p.id)?.saleQty || 0,
-           saleRevenue: saleByProductId.get(p.id)?.saleRevenue || 0,
-    }))
-    
-    
-    
-     this.state.topSummaryOnPurchase={
-             totalPurchaseQty:this.state.compareTopProductsPurchase.reduce((sum,r)=>sum+r.purchaseQty,0),
-             totalPurchaseRevenue:this.state.compareTopProductsPurchase.reduce((sum,r)=>sum+r.purchaseRevenue,0),
-             totalSaleQty:this.state.compareTopProductsPurchase.reduce((sum,r)=>sum+r.saleQty,0),
-             totalSaleRevenue:this.state.compareTopProductsPurchase.reduce((sum,r)=>sum+r.saleRevenue,0)
-     }
-     
+        chartInstance = new Chart(canvasRef.el, {
+            type: "bar",
+            data,
+            options: {
+                indexAxis,
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: legend } },
+                scales: { x: { beginAtZero: true } },
+            },
+        })
     }
 
-    async loadSaleRevenue() {
-        const result = await this.orm.readGroup(
-            "sale.report",
-            this.buildSaleDomain(),
-            ["price_total:sum"],
-            [],
-            { lazy: false }
-        );
-        const totalSaleRevenue = result.reduce((sum, r) => sum + (r.price_total || 0), 0);
-        this.state.summary = { ...this.state.summary, totalSaleRevenue };
+    function destroy() {
+        chartInstance?.destroy()
     }
 
-    async loadTopProducts() {
-
-        
-        const result = await this.orm.readGroup(
-            "purchase.report",
-            this.buildPurchaseDomain(),
-            ["price_total:sum", "qty_ordered:sum", "discount_amount:sum", "order_id:count_distinct"],
-            ["product_id"],
-            { lazy: false }
-        );
-        
-
-        const metric = this.state.sortBy;
-        const key = metric === "price_total" ? "revenue" : "qty";
-        this.state.topProducts = result
-            .filter((r) => r.product_id)
-            .map((r) => ({
-                id: r.product_id[0],
-                name: r.product_id[1],
-                qty: r.qty_ordered || 0,
-                revenue: r.price_total || 0,
-                discount: r.discount_amount || 0,
-                orders: r.order_id || 0,
-            }))
-            .sort((a, b) => b[key] - a[key])
-            .slice(0, 20);
-          
-            }
-
-
-
-
-    async loadTopSaleProducts(){
-        
-        const result=await this.orm.readGroup(
-            "sale.report",
-            this.buildSaleDomain(),
-            ["price_total:sum","product_uom_qty:sum"],
-            ["product_id"],
-            {lazy:false}
-        )
-        const metric = this.state.sortBy;
-        const key = metric === "price_total" ? "revenue" : "qty";
-
-        this.state.topSaleProducts=result
-        .filter((r)=>r.product_id)
-        .map((r)=>({
-            id:r.product_id[0],
-            name:r.product_id[1],
-            qty:r.product_uom_qty || 0,
-            revenue:r.price_total || 0
-        })).sort((a,b)=>b[key]-a[key])
-        .slice(0,20) 
-    
-     
-    }
-    async laodPurchaseProducts(){
-        if(!this.state.topSaleProducts.length){
-           this.state.compareTopProductsPurchase=[]
-           return
-        }
-        const productIds=this.state.topSaleProducts.map((r)=>r.id)
-        const domain=[...this.buildPurchaseDomain(),["product_id","in",productIds]]
-        const result=await this.orm.readGroup(
-            "purchase.report",
-            domain,
-            ["price_total:sum","qty_ordered:sum"],
-            ["product_id"],
-            {lazy:false}
-        )
-        const purchaseByProductId=new Map(
-            result
-            .filter((r)=>r.product_id)
-            .map((r)=>[
-                r.product_id[0],
-                {
-                    purchaseQty:r.qty_ordered || 0,
-                    purchaseRevenue:r.price_total || 0
-                }
-            ])
-        )
-        this.state.compareTopProductsPurchase=this.state.topSaleProducts.map((p)=>({
-            id:p.id,
-            name:p.name,
-            saleQty:p.qty,
-            saleRevenue:p.revenue,
-            purchaseQty:purchaseByProductId.get(p.id)?.purchaseQty || 0,
-            purchaseRevenue:purchaseByProductId.get(p.id)?.purchaseRevenue || 0
-        }))
-            this.state.topSummaryOnSale={
-                totalPurchaseQty:this.state.compareTopProductsPurchase.reduce((sum,r)=>sum+r.purchaseQty,0),
-                totalPurchaseRevenue:this.state.compareTopProductsPurchase.reduce((sum,r)=>sum+r.purchaseRevenue,0),
-                totalSaleQty:this.state.compareTopProductsPurchase.reduce((sum,r)=>sum+r.saleQty,0),
-                totalSaleRevenue:this.state.compareTopProductsPurchase.reduce((sum,r)=>sum+r.saleRevenue,0)
-            }            
-    }
-    formatMoney(value) {
-        return formatFloat(value, { digits: [16, 2] });
-    }
+    return { pagelabel, toggle, reset, render, destroy }
 }
 
-registry.category("actions").add("sale_purchase", SalesPurchasesScreen);
+export function usePageRankedChart() {
+    // --- one instance per chart, each with its own private page counter ---
+    const purchaseChart = createPagedBarChart(useRef("productsBarCanvas"), {
+        buildDatasets: (items, metricKey) => {
+            const purchaseKey = metricKey === "qty" ? "purchaseQty" : "purchaseRevenue"
+            const saleKey = metricKey === "qty" ? "saleQty" : "saleRevenue"
+            return [
+                {
+                    label: metricKey === "qty" ? "Purchase Quantity" : "Purchase Revenue",
+                    data: items.map((i) => i[purchaseKey]),
+                    backgroundColor: "orange",
+                },
+                {
+                    label: metricKey === "qty" ? "Sale Quantity" : "Sale Revenue",
+                    data: items.map((i) => i[saleKey]),
+                    backgroundColor: "teal",
+                },
+            ]
+        },
+    })
+
+    const saleChart = createPagedBarChart(useRef("productsBarCanvas_Sale"), {
+        buildDatasets: (items, metricKey) => {
+            const purchaseKey = metricKey === "qty" ? "purchaseQty" : "purchaseRevenue"
+            const saleKey = metricKey === "qty" ? "saleQty" : "saleRevenue"
+            return [
+                {
+                    label: metricKey === "qty" ? "Sale Quantity" : "Sale Revenue",
+                    data: items.map((i) => i[saleKey]),
+                    backgroundColor: "teal",
+                },
+                {
+                    label: metricKey === "qty" ? "Purchase Quantity" : "Purchase Revenue",
+                    data: items.map((i) => i[purchaseKey]),
+                    backgroundColor: "orange",
+                },
+            ]
+        },
+    })
+
+    const vendorChart = createPagedBarChart(useRef("vendorCanvas"), {
+        indexAxis: "x",
+        legend: false,
+        buildDatasets: (items, metricKey) => {
+            const key = metricKey === "qty" ? "totalQty" : "totalRevenue"
+            return [
+                {
+                    label: metricKey === "qty" ? "Quantity" : "Revenue",
+                    data: items.map((i) => i[key]),
+                    backgroundColor: "orange",
+                },
+            ]
+        },
+    })
+
+    // --- branch trend: not paginated, not a bar chart, stays separate ---
+    const branchCanvasRef = useRef("branchCanvas")
+    let branchChartInstance = null
+
+    function renderBranchTrend(data, metricKey) {
+        if (!branchCanvasRef.el) return
+
+        const revenueOrQty = metricKey === "qty" ? "Qty" : "Revenue"
+        const saleField = `sale${revenueOrQty}`
+        const purchaseField = `purchase${revenueOrQty}`
+        const palette = ["#e67e22", "#16a085", "#8e44ad", "#2980b9", "#c0392b"]
+
+        const datasets = data.branches.flatMap((branch, i) => {
+            const color = palette[i % palette.length]
+            return [
+                {
+                    label: `${branch.name} - Sale ${revenueOrQty}`,
+                    data: branch[saleField],
+                    borderColor: color,
+                    backgroundColor: color,
+                    borderWidth: 2,
+                    fill: false,
+                },
+                {
+                    label: `${branch.name} - Purchase ${revenueOrQty}`,
+                    data: branch[purchaseField],
+                    borderColor: color,
+                    backgroundColor: color,
+                    borderWidth: 2,
+                    borderDash: [6, 4],
+                    fill: false,
+                },
+            ]
+        })
+
+        const chartData = { labels: data.months, datasets }
+
+        if (branchChartInstance) {
+            branchChartInstance.data = chartData
+            branchChartInstance.update()
+            return
+        }
+
+        branchChartInstance = new Chart(branchCanvasRef.el, {
+            type: "line",
+            data: chartData,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: "bottom" } },
+                scales: { y: { beginAtZero: true } },
+            },
+        })
+    }
+
+    onWillUnmount(() => {
+        purchaseChart.destroy()
+        saleChart.destroy()
+        vendorChart.destroy()
+        branchChartInstance?.destroy()
+    })
+
+    return {
+        purchaseChart,   // { pagelabel, toggle, reset, render }
+        saleChart,       // { pagelabel, toggle, reset, render }
+        vendorChart,     // { pagelabel, toggle, reset, render }
+        purchasProductscanvasRef: purchaseChart.el, // see note below re: refs
+        renderBranchTrend,
+        branchCanvasRef,
+    }
+}

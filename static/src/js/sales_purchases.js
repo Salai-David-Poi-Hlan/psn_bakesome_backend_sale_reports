@@ -30,6 +30,8 @@ export class SalesPurchasesScreen extends Component {
             compareTopProductsSale:[],
             compareTopProductsPurchase:[],
             topSaleProducts:[],
+            branch_sale_purchase:[],
+            branch_sale_purchase_Summary:[],
             summary: {
                 totalQty: 0, totalRevenue: 0, totalSaleRevenue: 0,
                 totalAverage: 0, totalUntaxed: 0, totalDiscount: 0,
@@ -41,7 +43,8 @@ export class SalesPurchasesScreen extends Component {
             topSummaryOnSale:{
                 totalPurchaseQty:0,totalPurchaseRevenue:0,totalSaleQty:0,totalSaleRevenue:0
 
-            }
+            },
+
         })
         onWillStart(async () => {
             await loadJS("/web/static/lib/Chart/Chart.js")
@@ -52,18 +55,21 @@ export class SalesPurchasesScreen extends Component {
             await this.laodSaleProducts();
             await this.laodPurchaseProducts()
             await this.loadSaleRevenue();
+            await this.loadBranchTrend()
         
         });
         onMounted(async()=>{
             await this.chart.renderpurchasProducts(this.state.compareTopProductsSale,this.metricKey)
             await this.chart.renderSaleProducts(this.state.compareTopProductsPurchase,this.metricKey)
             await this.chart.renderVendorSupplier(this.state.topVendors,this.metricKey)
+            await this.chart.renderBranchTrend(this.state.branch_sale_purchase,this.metricKey)
         })
     }
 
     async toggleChartPage(){
         await this.chart.togglePurchase(this.state.compareTopProductsSale,this.metricKey)
         this.chart.renderpurchasProducts(this.state.compareTopProductsSale,this.metricKey)
+        
     }
 
     async toggleChartPageSale(){
@@ -103,8 +109,12 @@ export class SalesPurchasesScreen extends Component {
         await this.laodSaleProducts();
         await this.laodPurchaseProducts()
         await this.loadSaleRevenue()
+        await this.loadBranchTrend()
         await this.chart.renderpurchasProducts(this.state.compareTopProductsSale,this.metricKey)    
         await this.chart.renderSaleProducts(this.state.compareTopProductsPurchase,this.metricKey)
+        await this.chart.renderVendorSupplier(this.state.topVendors,this.metricKey)
+        await this.chart.renderBranchTrend(this.state.branch_sale_purchase,this.metricKey)
+
     }
 
     onDateChange() {
@@ -170,8 +180,6 @@ export class SalesPurchasesScreen extends Component {
             this.state.compareTopProductsSale=[];
             return
         }
-
-
         const productIds=this.state.topProducts.map((p)=>p.id)
         const domain=[...this.buildSaleDomain(),["product_id","in",productIds]]
           const result=await this.orm.readGroup(
@@ -341,6 +349,88 @@ export class SalesPurchasesScreen extends Component {
                 totalSaleRevenue:this.state.compareTopProductsPurchase.reduce((sum,r)=>sum+r.saleRevenue,0)
             }            
     }
+
+    async loadSaleBranch(){
+              const sale_result=await this.orm.readGroup("sale.report",
+                   this.buildSaleDomain(),
+                   ["price_total:sum","product_uom_qty:sum"],
+                   ["branch_id","date:month"],
+                   {lazy:false}
+              )
+
+              const saleByBranchMonth=new Map()
+              for(const r of sale_result){
+                if(!r.branch_id) continue
+                const branchId=r.branch_id[0]
+                const branchName=r.branch_id[1]
+                const key=`${branchId}::${r["date:month"]}`
+                saleByBranchMonth.set(key,{
+                    branchName,
+                    saleRevenue:r.price_total || 0,
+                    saleQty:r.product_uom_qty || 0,
+                })
+              }              
+              return saleByBranchMonth
+            
+    }
+
+    async loadPurchaseBranch(){
+        const purchase_result=await this.orm.readGroup("purchase.report",
+             this.buildPurchaseDomain(),
+             ["price_total:sum","qty_ordered:sum"],
+             ["branch_id","date_order:month"],
+             {lazy:false}
+        )
+
+        const purchaseByBranchMonth=new Map()
+        for(const r of purchase_result){
+            if(!r.branch_id) continue
+            const branchId=r.branch_id[0]
+            const branchName=r.branch_id[1]
+            const key=`${branchId}::${r["date_order:month"]}`
+            purchaseByBranchMonth.set(key,{
+                branchName,
+                purchaseRevenue:r.price_total || 0,
+                purchaseQty:r.qty_ordered || 0,
+            })
+         
+        }
+             return purchaseByBranchMonth
+    }
+
+
+
+    async loadBranchTrend(){
+        const saleMap=await this.loadSaleBranch()
+        const purchaseMap=await this.loadPurchaseBranch()
+
+        const branchNameById=new Map()
+        const months=new Set()
+
+      for(const [key,value] of [...saleMap.entries(),...purchaseMap.entries()]){
+          const [branchId,month]=key.split("::")
+          months.add(month)
+          if(!branchNameById.has(branchId)){
+            branchNameById.set(branchId,value.branchName)
+          }
+      }
+      const sortedMonths=[...months].sort((a,b)=>new Date(`1 ${a}`)-new Date(`1 ${b}`))
+      console.log(sortedMonths);
+      
+
+      this.state.branch_sale_purchase={
+        months:sortedMonths,
+        branches:[...branchNameById.entries()].map(([id,name])=>({
+            id:Number(id),
+            name,
+            saleRevenue:sortedMonths.map((m)=>saleMap.get(`${id}::${m}`)?.saleRevenue || 0),
+            saleQty:sortedMonths.map((m)=>saleMap.get(`${id}::${m}`)?.saleQty || 0),
+            purchaseRevenue:sortedMonths.map((m)=>purchaseMap.get(`${id}::${m}`)?.purchaseRevenue || 0),
+            purchaseQty:sortedMonths.map((m)=>purchaseMap.get(`${id}::${m}`)?.purchaseQty || 0)
+        }))
+      }
+    }
+
     formatMoney(value) {
         return formatFloat(value, { digits: [16, 2] });
     }

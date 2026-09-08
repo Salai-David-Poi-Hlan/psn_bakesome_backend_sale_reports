@@ -1,7 +1,34 @@
 /** @odoo-module **/
-import {useState,useRef,onMounted,onWillUnmount} from "@odoo/owl"
+import {useState,useRef,onWillUnmount} from "@odoo/owl"
 
 const PAGE_SIZE=10;
+
+function createPageBarChart(canvasRef,{buildDataSets,indexAxis="y",legend=true}){
+    const page=useState({value:0})
+    let chartInstance=null;
+
+
+    function totalPages(items){
+        return Math.ceil(items.length/PAGE_SIZE) || 1
+    }
+
+    function pagelabel(items){
+            return `${page.value+1}/${totalPages(items)}`
+    }
+
+    function toggle(items){
+        const next=page.value+1
+        page.value=next<totalPages(items) ? next:0
+    }
+
+    function reset(){
+        page.value=0
+    }
+
+    
+}
+
+
 
 export function usePageRankedChart(){
         const page=useState({value:0,value2:0,vendor_Value:0})
@@ -9,15 +36,18 @@ export function usePageRankedChart(){
         const purchasProductscanvasRef=useRef("productsBarCanvas")
         const saleProductscanvasRef=useRef("productsBarCanvas_Sale")
         const vendorCanvasRef=useRef("vendorCanvas")
+        const branchCanvasRef=useRef("branchCanvas")
         let chart=null;
         let purchaseProductsChart = null;
         let saleProductsChart=null;
         let vendorChart=null;
+        let branchChart=null;
         onWillUnmount(()=>{
             chart?.destroy()
             purchaseProductsChart?.destroy()
             saleProductsChart?.destroy()
             vendorChart?.destroy()
+            branchChart?.destroy()
         })
 
         function totalPages(items){
@@ -39,7 +69,7 @@ export function usePageRankedChart(){
         }
 
         function vendorLabel(items){
-            return  `${page.vendor_Value}/${totalPages(items)}`
+            return  `${page.vendor_Value+1}/${totalPages(items)}`
         }
 ////////////////////////////////
 
@@ -85,11 +115,7 @@ export function usePageRankedChart(){
 ////////////////////////////////
 
         function renderSaleProducts(items,metricKey){
-
-            console.log("renderSaleProducts");
-            console.log(items);
-            
-            
+        
                 if(!saleProductscanvasRef.el) return
                 if (page.value >= totalPages(items)) page.value=0
             const start=page.value*PAGE_SIZE
@@ -179,14 +205,15 @@ export function usePageRankedChart(){
 
         function renderVendorSupplier(items,metricKey){
             if (!vendorCanvasRef.el) return;
-            if(page.vendor_Value>=totalPages(items)) page.value=0
+            if(page.vendor_Value>=totalPages(items)) page.vendor_Value=0
             const start=page.vendor_Value*PAGE_SIZE
             const pageItems=items.slice(start,start+PAGE_SIZE)
+            const key = metricKey === "qty" ? "totalQty" : "totalRevenue"
             const data={
                 labels:pageItems.map((i)=>i.name),
                 datasets:[{
                     label:metricKey==="qty"?"Quantity":"Revenue",
-                    data:pageItems.map((i)=>[metricKey]),
+                    data: pageItems.map((i) => i[key]),                    
                     backgroundColor:"orange"
                 }]
             }
@@ -203,8 +230,9 @@ export function usePageRankedChart(){
                 type:"bar",
                 data,
                 options:{
-                    indexAxis:"y",
+                    indexAxis:"x",
                     responsive:true,
+                    maintainAspectRatio:false, 
                     plugins:{legend:{display:false}},
                     scales:{x:{beginAtZero:true}}
                 }
@@ -244,10 +272,65 @@ export function usePageRankedChart(){
                })
         }
 
+
+        function renderBranchTrend(data,metricKey){
+           if (!branchCanvasRef.el) return
+               const revenueOrQty=metricKey==="qty"?"Qty":"Revenue"
+               const saleField=`sale${revenueOrQty}`
+               const purchaseField=`purchase${revenueOrQty}`
+               const palette = ["#e67e22", "#16a085", "#8e44ad", "#2980b9", "#c0392b"]   
+            
+              const datasets=data.branches.flatMap((branch,i)=>{
+                const color=palette[i %palette.length]
+                return [
+                    {
+                        label:`${branch.name} - Sale ${revenueOrQty}`,
+                        data:branch[saleField],
+                        borderColor:color,
+                        backgroundColor:color,
+                        borderWidth:2,
+                        fill:false
+                    },
+                    {
+                        label:`${branch.name} Purchase ${revenueOrQty}`,
+                        data:branch[purchaseField],
+                        borderColor:color,
+                        backgroundColor:color,
+                        borderWidth:2,
+                        borderDash:[6,4],
+                        fill:false
+                    }
+                ]
+              })
+
+              const chartData={
+                labels:data.months,
+                datasets
+              }
+
+
+              if(branchChart){
+                branchChart.data=chartData
+                branchChart.update()
+                return
+              }
+
+
+              branchChart=new Chart(branchCanvasRef.el,{
+                type:"line",
+                data:chartData,
+                options:{
+                    responsive:true,
+                    maintainAspectRatio:false,
+                    plugins:{legend:{position:"bottom"}},
+                    scales:{y:{beginAtZero:true}}
+                }
+              })
+            }
      
 
         return {
-            
+
             page,
             totalPages,
             pagelabel,
@@ -263,10 +346,12 @@ export function usePageRankedChart(){
             resetPurchase,
             resetVendor,
             render,
+            renderBranchTrend,
             canvasRef,
             purchasProductscanvasRef,
             renderpurchasProducts,
             saleProductscanvasRef,
+            branchCanvasRef,
             vendorCanvasRef,
             renderSaleProducts,
             renderVendorSupplier
