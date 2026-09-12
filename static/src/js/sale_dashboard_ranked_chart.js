@@ -25,253 +25,117 @@ function createPageBarChart(canvasRef,{buildDataSets,indexAxis="y",legend=true})
         page.value=0
     }
 
+
+    function render(items,metricKey){
+        if (!canvasRef.el) return
+        if (page.value>=totalPages(items)) page.value=0
+        const start=page.value*PAGE_SIZE
+        const pageItems=items.slice(start,start+PAGE_SIZE)
+
+        const data={
+            labels:pageItems.map((i)=>i.name),
+            datasets:buildDataSets(pageItems,metricKey)
+        }
+
+        if(chartInstance){
+            chartInstance.data=data
+            chartInstance.update()
+            return
+        }
+
+        chartInstance=new Chart(canvasRef.el,{
+            type:"bar",
+            data,
+            options:{
+                indexAxis,
+                responsive:true,
+                maintainAspectRatio:false,
+                plugins:{legend:{display:legend}},
+                scales:{x:{beginAtZero:true}}
+            }
+        })
+    }
+   
+     function destroy(){
+           chartInstance?.destroy()
+     }
     
+
+     return {pagelabel,toggle,reset,render,destroy}
 }
 
 
-
 export function usePageRankedChart(){
-        const page=useState({value:0,value2:0,vendor_Value:0})
-        const canvasRef=useRef("barCanvas");
-        const purchasProductscanvasRef=useRef("productsBarCanvas")
-        const saleProductscanvasRef=useRef("productsBarCanvas_Sale")
-        const vendorCanvasRef=useRef("vendorCanvas")
-        const branchCanvasRef=useRef("branchCanvas")
-        let chart=null;
-        let purchaseProductsChart = null;
-        let saleProductsChart=null;
-        let vendorChart=null;
-        let branchChart=null;
-        onWillUnmount(()=>{
-            chart?.destroy()
-            purchaseProductsChart?.destroy()
-            saleProductsChart?.destroy()
-            vendorChart?.destroy()
-            branchChart?.destroy()
-        })
 
-        function totalPages(items){
-              return Math.ceil(items.length/PAGE_SIZE) || 1;
-        }
-
-/////////////////////////
-        function pagelabel(items){
-            return `${page.value+1}/${totalPages(items)}`
-        }
-
-
-        function pagelabelSale(items){
-            return `${page.value+1}/${totalPages(items)}`
-        }
-
-        function pagelabelPurchase(items){
-            return `${page.value2+1}/${totalPages(items)}`
-        }
-
-        function vendorLabel(items){
-            return  `${page.vendor_Value+1}/${totalPages(items)}`
-        }
-////////////////////////////////
+    const genericChart=createPageBarChart(useRef("barCanvas"),{
+        buildDataSets:(items,metricKey)=>[
+            {
+                label:metricKey==="qty"?"Quantity":"Revenue",
+                data:items.map((i)=>i[metricKey]),
+                backgroundColor:"orange"
+            }
+        ]
+    })
 
 
 
+    const purchaseChart=createPageBarChart(useRef("productsBarCanvas"),{
+        buildDataSets:(items,metricKey)=>{
+             const purchaseKey=metricKey==="qty"?"purchaseQty":"purchaseRevenue"
+             const saleKey=metricKey==="qty"?"saleQty":"saleRevenue"
 
-        function toggle(items){
-              const next=page.value+1
-              page.value=next<totalPages(items) ? next:0
-        }
-        function toggleSale(items){
-              const next=page.value+1
-              page.value=next<totalPages(items) ? next:0
-        }
-        function togglePurchase(items){
-              const next=page.value2+1
-              page.value2=next<totalPages(items) ? next:0
-        }
-
-        function toggleVendor(items){
-            const next=page.vendor_Value+1
-            page.vendor_Value=next<totalPages(items)?next:0
-        }
-
-////////////////////////////////
-        function reset(){
-            page.value=0
-        }
-
-
-         function resetSale(){
-            page.value=0
-        }
-
-         function resetPurchase(){
-            page.value2=0
-        }
-
-
-        function resetVendor(){
-            page.vendor_Value=0
-        }
-////////////////////////////////
-
-        function renderSaleProducts(items,metricKey){
-        
-                if(!saleProductscanvasRef.el) return
-                if (page.value >= totalPages(items)) page.value=0
-            const start=page.value*PAGE_SIZE
-            const pageItems=items.slice(start,start+PAGE_SIZE)
-            const purchaseKey=metricKey === "qty"?"purchaseQty":"purchaseRevenue"
-            const saleKey = metricKey === "qty" ? "saleQty" : "saleRevenue"
-
-
-            const data={
-                labels:pageItems.map((i)=>i.name),
-                datasets:[
-                    {
+             return[
+                {
+                     label:metricKey==="qty"?"Purchase Quantity":"Purchase Revenue",
+                     data:items.map((i)=>i[purchaseKey]),
+                     backgroundColor:"orange"
+                },
+                {
                     label:metricKey==="qty"?"Sale Quantity":"Sale Revenue",
-                    data:pageItems.map((i)=>i[saleKey]),
+                    data:items.map((i)=>i[saleKey]),
                     backgroundColor:"teal"
+                }
+             ]
+        }
+    })
+
+
+    const saleChart=createPageBarChart(useRef("productsBarCanvas_Sale"),{
+        buildDataSets:(items,metricKey)=>{
+            const saleKey=metricKey==="qty"?"saleQty":"saleRevenue"
+            const purchaseKey=metricKey==="qty"?"purchaseQty":"purchaseRevenue"
+            return[
+                {
+                    label:metricKey==="qty"?"Sale Quantity":"Sale Revenue",
+                    data:items.map((i)=>i[saleKey]),
+                    backgroundColor:"orange"
                 },
                 {
                     label:metricKey==="qty"?"Purchase Quantity":"Purchase Revenue",
-                    data:pageItems.map((i)=>i[purchaseKey]),
-                    backgroundColor:"orange"
-                }
-                ]
-            }
-
-            if(saleProductsChart){
-                saleProductsChart.data=data
-                saleProductsChart.update()
-                return
-            }
-
-
-            saleProductsChart=new Chart(saleProductscanvasRef.el,{
-                type:"bar",
-                data,
-                options:{
-                    indexAxis:"y",
-                    responsive:true,
-                    maintainAspectRatio:false,
-                    plugins:{legend:{display:true}},
-                    scales:{x:{beginAtZero:true}}
-                }
-            })
-        }
-
-
-        function renderpurchasProducts(items,metricKey){            
-            if (!purchasProductscanvasRef.el) return
-            if (page.value2 >= totalPages(items)) page.value2=0
-            const start=page.value2*PAGE_SIZE
-            const pageItems=items.slice(start,start+PAGE_SIZE)
-            const purchaseKey=metricKey === "qty"?"purchaseQty":"purchaseRevenue"
-            const saleKey = metricKey === "qty" ? "saleQty" : "saleRevenue"
-            const data={
-                labels:pageItems.map((i)=>i.name),
-                datasets:[{
-                    label:metricKey==="qty"?"Purchase Quantity":"Purchase Revenue",
-                    data:pageItems.map((i)=>i[purchaseKey]),
-                    backgroundColor:"orange"
-                },{
-                    label:metricKey==="qty"?"Sale Quantity":"Sale Revenue",
-                    data:pageItems.map((i)=>i[saleKey]),
-                    backgroundColor:"teal"
+                    data:items.map((i)=>i[purchaseKey]),
+                    backgroundColor:"teal" 
                 }
             ]
-            }
-
-            if (purchaseProductsChart){
-                purchaseProductsChart.data=data
-                purchaseProductsChart.update()
-                return
-            } 
-
-            purchaseProductsChart=new Chart(purchasProductscanvasRef.el,{
-                type:"bar",
-                data,
-                options:{
-                    indexAxis:"y",
-                    responsive:true,
-                    maintainAspectRatio:false,
-                    plugins:{legend:{display:true}},
-                    scales:{x:{beginAtZero:true}}
-                }
-            })
         }
+    })
 
 
 
-        function renderVendorSupplier(items,metricKey){
-            if (!vendorCanvasRef.el) return;
-            if(page.vendor_Value>=totalPages(items)) page.vendor_Value=0
-            const start=page.vendor_Value*PAGE_SIZE
-            const pageItems=items.slice(start,start+PAGE_SIZE)
-            const key = metricKey === "qty" ? "totalQty" : "totalRevenue"
-            const data={
-                labels:pageItems.map((i)=>i.name),
-                datasets:[{
+    const vendorChart=createPageBarChart(useRef("vendorCanvas"),{
+        buildDataSets:(items,metricKey)=>{
+            const key=metricKey==="qty"?"totalQty":"totalRevenue"
+            return[
+                {
                     label:metricKey==="qty"?"Quantity":"Revenue",
-                    data: pageItems.map((i) => i[key]),                    
+                    data: items.map((i)=>i[key]),
                     backgroundColor:"orange"
-                }]
-            }
-
-
-            if(vendorChart){
-                vendorChart.data=data
-                vendorChart.update()
-                return
-            }
-
-
-            vendorChart=new Chart(vendorCanvasRef.el,{
-                type:"bar",
-                data,
-                options:{
-                    indexAxis:"x",
-                    responsive:true,
-                    maintainAspectRatio:false, 
-                    plugins:{legend:{display:false}},
-                    scales:{x:{beginAtZero:true}}
                 }
-            })
+            ]
         }
+    })
 
-        function render(items,metricKey){
-               if (!canvasRef.el) return;
-               if (page.value >= totalPages(items)) page.value = 0;
-               const start=page.value*PAGE_SIZE
-               const pageItems=items.slice(start,start+PAGE_SIZE)
-               const data={
-                   labels:pageItems.map((i)=>i.name),
-                   datasets:[{
-                       label:metricKey==="qty"?"Quantity":"Revenue",
-                       data:pageItems.map((i)=>i[metricKey]),
-                       backgroundColor:"orange"
-                   }]
-               }
-
-               if (chart){
-                    chart.data=data;
-                    chart.update();
-                    return;
-               }
-
-               chart =new Chart(canvasRef.el,{ 
-                   type:"bar",
-                   data,
-                   options:{
-                        indexAxis:"y",
-                        responsive:true,
-                        maintainAspectRatio:false,
-                        plugins:{legend:{display:false}},
-                        scales:{x:{beginAtZero:true}}
-                   }
-               })
-        }
-
+    const branchCanvasRef=useRef("branchCanvas")
+        let branchChart=null;
 
         function renderBranchTrend(data,metricKey){
            if (!branchCanvasRef.el) return
@@ -327,33 +191,25 @@ export function usePageRankedChart(){
                 }
               })
             }
+
+
+
+               onWillUnmount(()=>{
+            genericChart?.destroy()
+            purchaseChart?.destroy()
+            saleChart?.destroy()
+            vendorChart?.destroy()
+            branchChart?.destroy()
+        })
      
 
         return {
-
-            page,
-            totalPages,
-            pagelabel,
-            pagelabelSale,
-            pagelabelPurchase,
-            vendorLabel,
-            toggle,
-            toggleSale,
-            togglePurchase,
-            toggleVendor,
-            reset,
-            resetSale,
-            resetPurchase,
-            resetVendor,
-            render,
-            renderBranchTrend,
-            canvasRef,
-            purchasProductscanvasRef,
-            renderpurchasProducts,
-            saleProductscanvasRef,
-            branchCanvasRef,
-            vendorCanvasRef,
-            renderSaleProducts,
-            renderVendorSupplier
+          genericChart,
+          purchaseChart,
+          saleChart,
+          vendorChart,
+          renderBranchTrend,
+          branchCanvasRef,
+          
         }
 }

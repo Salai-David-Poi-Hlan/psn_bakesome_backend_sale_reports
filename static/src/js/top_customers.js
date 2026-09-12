@@ -26,7 +26,7 @@ export class TopCustomersScreen extends Component{
         })
        
         this.chart=usePageRankedChart()
-        this.barCanvasRef=this.chart.canvasRef
+        this.barCanvasRef=this.chart.genericChart.canvasRef
         onWillStart(async()=>{
             await loadJS("/web/static/lib/Chart/Chart.js")
             await ready
@@ -34,7 +34,7 @@ export class TopCustomersScreen extends Component{
         })
 
         onMounted(async()=>{
-                         await this.chart.render(this.state.topCustomers, this.metricKey)
+                         await this.chart.genericChart.render(this.state.topCustomers, this.metricKey)
 
         })
     }
@@ -51,7 +51,7 @@ export class TopCustomersScreen extends Component{
     async refresh(){
         this.chart.reset()
         await this.loadTopCustomers()
-        await this.chart.render(this.state.topCustomers,this.metricKey)
+        await this.chart.genericChart.render(this.state.topCustomers,this.metricKey)
     }
 
 
@@ -76,8 +76,8 @@ export class TopCustomersScreen extends Component{
 
 
     async toggleChartPage(){
-      await this.chart.toggle(this.state.topCustomers)
-      this.chart.render(this.state.topCustomers,this.metricKey)
+      await this.chart.genericChart.toggle(this.state.topCustomers)
+      this.chart.genericChart.render(this.state.topCustomers,this.metricKey)
     }
 
 

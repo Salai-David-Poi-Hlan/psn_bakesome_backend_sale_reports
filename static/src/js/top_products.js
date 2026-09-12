@@ -26,7 +26,7 @@ export class TopProductScreen extends Component{
             }
         })
         this.chart=usePageRankedChart()
-       this.barCanvasRef=this.chart.canvasRef
+       this.barCanvasRef=this.chart.genericChart.canvasRef
   
        onWillStart(async ()=>{
         await loadJS("/web/static/lib/Chart/Chart.js")
@@ -35,7 +35,7 @@ export class TopProductScreen extends Component{
        })
 
        onMounted(async()=>{
-          await this.chart.render(this.state.topProducts, this.metricKey)
+          await this.chart.genericChart.render(this.state.topProducts, this.metricKey)
        })
     }
 
@@ -52,11 +52,10 @@ export class TopProductScreen extends Component{
     async refresh() {
         this.chart.reset();
         await this.loadTopProducts();
-        await this.chart.render(this.state.topProducts, this.metricKey);
+        await this.chart.genericChart.render(this.state.topProducts, this.metricKey);
     }
 
     onDateChange() {
-        
         this.onDateFieldChange(() => this.refresh());
     }
 
@@ -76,16 +75,15 @@ export class TopProductScreen extends Component{
     }
 
     async toggleChartPage() {
-       await this.chart.toggle(this.state.topProducts);
-        this.chart.render(this.state.topProducts, this.metricKey);
+       await this.chart.genericChart.toggle(this.state.topProducts);
+        this.chart.genericChart.render(this.state.topProducts, this.metricKey);
     }
 
     get chartPageLabel() {
-        return this.chart.pagelabel(this.state.topProducts);
+        return this.chart.genericChart.pagelabel(this.state.topProducts);
     }
 
      async loadTopProducts(){
-            console.log("Load TOp Products");
             
             const result=await this.orm.readGroup(
                 "sale.report",

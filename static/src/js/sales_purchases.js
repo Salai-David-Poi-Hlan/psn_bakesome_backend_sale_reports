@@ -20,9 +20,9 @@ export class SalesPurchasesScreen extends Component {
         this.buildPurchaseDomain = buildDomainPurchase;
         this.buildSaleDomain = buildDomain;
         this.chart=usePageRankedChart()
-        this.productsBarCanvas=this.chart.purchasProductscanvasRef
-        this.saleProductsBarCanvas=this.chart.saleProductscanvasRef
-        this.vendorCanvas=this.chart.vendorCanvasRef
+        this.productsBarCanvas=this.chart.purchaseChart.canvasRef
+        this.saleProductsBarCanvas=this.chart.saleChart.canvasRef
+        this.vendorCanvas=this.chart.vendorChart.canvasRef
         this.state = useState({
             sortBy: "price_total",
             topVendors: [],
@@ -59,27 +59,27 @@ export class SalesPurchasesScreen extends Component {
         
         });
         onMounted(async()=>{
-            await this.chart.renderpurchasProducts(this.state.compareTopProductsSale,this.metricKey)
-            await this.chart.renderSaleProducts(this.state.compareTopProductsPurchase,this.metricKey)
-            await this.chart.renderVendorSupplier(this.state.topVendors,this.metricKey)
+            await this.chart.purchaseChart.render(this.state.compareTopProductsSale,this.metricKey)
+            await this.chart.saleChart.render(this.state.compareTopProductsPurchase,this.metricKey)
+            await this.chart.vendorChart.render(this.state.topVendors,this.metricKey)
             await this.chart.renderBranchTrend(this.state.branch_sale_purchase,this.metricKey)
         })
     }
 
     async toggleChartPage(){
-        await this.chart.togglePurchase(this.state.compareTopProductsSale,this.metricKey)
-        this.chart.renderpurchasProducts(this.state.compareTopProductsSale,this.metricKey)
+        await this.chart.purchaseChart.toggle(this.state.compareTopProductsSale,this.metricKey)
+        this.chart.purchaseChart.render(this.state.compareTopProductsSale,this.metricKey)
         
     }
 
     async toggleChartPageSale(){
-        await  this.chart.toggleSale(this.state.compareTopProductsSale,this.metricKey)
-        this.chart.renderSaleProducts(this.state.compareTopProductsPurchase,this.metricKey)
+        await  this.chart.saleChart.toggle(this.state.compareTopProductsPurchase,this.metricKey)
+        this.chart.saleChart.render(this.state.compareTopProductsPurchase,this.metricKey)
     }
 
     async toggleChartPageVendor(){
-        await this.chart.toggleVendor(this.state.topVendors,this.metricKey)
-        this.chart.renderVendorSupplier(this.state.topVendors,this.metricKey)
+        await this.chart.vendorChart.toggle(this.state.topVendors,this.metricKey)
+         this.chart.vendorChart.render(this.state.topVendors,this.metricKey)
     }
 
     get metricKey(){
@@ -88,21 +88,21 @@ export class SalesPurchasesScreen extends Component {
 
 
     get chartPageLabelSale(){
-        return this.chart.pagelabelSale(this.state.compareTopProductsPurchase)
+        return this.chart.saleChart.pagelabel(this.state.compareTopProductsPurchase)
     }
 
     get chartPageLabel(){
-        return this.chart.pagelabelPurchase(this.state.compareTopProductsSale)
+        return this.chart.purchaseChart.pagelabel(this.state.compareTopProductsSale)
     }
 
 
     get chartPageVendor(){
-        return this.chart.vendorLabel(this.state.topVendors)
+        return this.chart.vendorChart.pagelabel(this.state.topVendors)
     }
 
     async refresh() {
-        this.chart.resetPurchase();
-        this.chart.resetSale();
+        this.chart.purchaseChart.reset();
+        this.chart.saleChart.reset();
         await this.loadTopVendorsAndSummary();
         await this.loadTopProducts();
         await this.loadTopSaleProducts();
@@ -110,9 +110,9 @@ export class SalesPurchasesScreen extends Component {
         await this.laodPurchaseProducts()
         await this.loadSaleRevenue()
         await this.loadBranchTrend()
-        await this.chart.renderpurchasProducts(this.state.compareTopProductsSale,this.metricKey)    
-        await this.chart.renderSaleProducts(this.state.compareTopProductsPurchase,this.metricKey)
-        await this.chart.renderVendorSupplier(this.state.topVendors,this.metricKey)
+        await this.chart.purchaseChart.render(this.state.compareTopProductsSale,this.metricKey)
+        await this.chart.saleChart.render(this.state.compareTopProductsPurchase,this.metricKey)
+        await this.chart.vendorChart.render(this.state.topVendors,this.metricKey)
         await this.chart.renderBranchTrend(this.state.branch_sale_purchase,this.metricKey)
 
     }
@@ -293,10 +293,6 @@ export class SalesPurchasesScreen extends Component {
             revenue:r.price_total || 0
         })).sort((a,b)=>b[key]-a[key])
         .slice(0,20)  
-        
-        console.log("Top Products: "+this.state.topSaleProducts.reduce((sum,r)=>sum+r.revenue,0));
-                console.log("Top Products: "+this.state.topSaleProducts.reduce((sum,r)=>sum+r.qty,0));
-
     }
 
 
@@ -415,7 +411,6 @@ export class SalesPurchasesScreen extends Component {
           }
       }
       const sortedMonths=[...months].sort((a,b)=>new Date(`1 ${a}`)-new Date(`1 ${b}`))
-      console.log(sortedMonths);
       
 
       this.state.branch_sale_purchase={
@@ -429,6 +424,19 @@ export class SalesPurchasesScreen extends Component {
             purchaseQty:sortedMonths.map((m)=>purchaseMap.get(`${id}::${m}`)?.purchaseQty || 0)
         }))
       }
+
+
+      this.state.branch_sale_purchase_Summary={
+        ...this.state.branch_sale_purchase_Summary,
+        totalSaleRevenue:this.state.branch_sale_purchase.branches.reduce((sum,r)=>sum+r.saleRevenue,0),
+        totalSaleQty:this.state.branch_sale_purchase.branches.reduce((sum,r)=>sum+r.saleQty,0),
+        totalpurchaseRevenue:this.state.branch_sale_purchase.branches.reduce((sum,r)=>sum+r.purchaseRevenue,0),
+        totalpurchaseQty:this.state.branch_sale_purchase.branches.reduce((sum,r)=>sum+r.purchaseQty,0)
+      }
+
+
+      console.log(this.state.branch_sale_purchase_Summary);
+      
     }
 
     formatMoney(value) {
