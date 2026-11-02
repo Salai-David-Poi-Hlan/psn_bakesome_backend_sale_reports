@@ -9,12 +9,20 @@ class SaleReport(models.Model):
     @api.model
     def get_utc_date_bounds(self, date_from, date_to):
         
+        # The company partner has no tz on prod, so falling back to UTC cut the
+        # day at 07:00 Bangkok time. Use the user's tz (same one read_group uses
+        # for date:month buckets), then the company's, then Asia/Bangkok.
         company = self.env.company
-        tz_name = company.partner_id.tz or 'UTC'
+        tz_name = (
+            self.env.context.get('tz')
+            or self.env.user.tz
+            or company.partner_id.tz
+            or 'Asia/Bangkok'
+        )
         try:
             local_tz = ZoneInfo(tz_name)
         except ZoneInfoNotFoundError:
-            local_tz = ZoneInfo('UTC')
+            local_tz = ZoneInfo('Asia/Bangkok')
 
         start_naive = datetime.combine(
             datetime.strptime(date_from, '%Y-%m-%d').date(), time.min

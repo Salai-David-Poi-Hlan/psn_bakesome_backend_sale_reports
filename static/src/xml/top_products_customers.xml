@@ -95,7 +95,7 @@
                     <i class="fa fa-money text-success"/>
                 </div>
                 <div>
-                    <div class="text-muted small">Total Revenue</div>
+                    <div class="text-muted small">Total Revenue (excl. VAT)</div>
                     <div class="fs-4 fw-bold" t-esc="formatMoney(state.summary.totalRevenue)"/>
                 </div>
             </div>
@@ -120,7 +120,7 @@
                             <th style="position: sticky; top: 0; background: white; z-index: 1;">Image</th>
                             <th style="position: sticky; top: 0; background: white; z-index: 1;">Product Name</th>
                             <th style="position: sticky; top: 0; background: white; z-index: 1;" class="text-end">Quantity</th>
-                            <th style="position: sticky; top: 0; background: white; z-index: 1;" class="text-end">Sale Price</th>
+                            <th style="position: sticky; top: 0; background: white; z-index: 1;" class="text-end">Revenue (excl. VAT)</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -231,7 +231,7 @@
 
                       </div>
                       <div>
-                         <div class="text-muted small">Total Revenue</div>
+                         <div class="text-muted small">Total Revenue (excl. VAT)</div>
                          <div class="fs-4 fw-bold" t-esc="formatMoney(state.summary.totalRevenue)"/>
                       </div>
                     </div>
@@ -254,7 +254,7 @@
                             <th style="position: sticky; top: 0; background: white; z-index: 1;">No</th>
                             <th style="position: sticky; top: 0; background: white; z-index: 1;">Customer Name</th>
                             <th style="position: sticky; top: 0; background: white; z-index: 1;" class="text-end">Quantity</th>
-                            <th style="position: sticky; top: 0; background: white; z-index: 1;" class="text-end">Price (Revenue)</th>
+                            <th style="position: sticky; top: 0; background: white; z-index: 1;" class="text-end">Revenue (excl. VAT)</th>
                         </tr>
                     </thead>
                     <tbody>

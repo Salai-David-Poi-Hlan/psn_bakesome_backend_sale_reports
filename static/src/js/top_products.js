@@ -14,10 +14,10 @@ export class TopProductScreen extends Component{
 
     setup(){
        this.orm=useService("orm");
-       const {state,buildDomain,ready,onDateFieldChange}=useSaleDashboardFilters()
+       const {state,buildGoodsDomain,ready,onDateFieldChange}=useSaleDashboardFilters()
        this.filters=state
        this.onDateFieldChange=onDateFieldChange
-       this.buildDomain=buildDomain
+       this.buildGoodsDomain=buildGoodsDomain
       this.state=useState({
             sortBy:"price_subtotal",
             topProducts:[],
@@ -50,7 +50,7 @@ export class TopProductScreen extends Component{
     }
 
     async refresh() {
-        this.chart.reset();
+        this.chart.genericChart.reset();
         await this.loadTopProducts();
         await this.chart.genericChart.render(this.state.topProducts, this.metricKey);
     }
@@ -87,8 +87,8 @@ export class TopProductScreen extends Component{
             
             const result=await this.orm.readGroup(
                 "sale.report",
-                this.buildDomain(),
-                ["price_total:sum","product_uom_qty:sum"],
+                this.buildGoodsDomain(),
+                ["price_subtotal:sum","product_uom_qty:sum"],
                 ["product_id"],
                 {lazy:false}
             );
@@ -100,7 +100,7 @@ export class TopProductScreen extends Component{
                 id:r.product_id[0],
                 name:r.product_id[1],
                 qty:r.product_uom_qty || 0,
-                revenue:r.price_total || 0,
+                revenue:r.price_subtotal || 0,
                 imageUrl: `/web/image/product.product/${r.product_id[0]}/image_128`,
             }))
             .sort((a,b)=>{

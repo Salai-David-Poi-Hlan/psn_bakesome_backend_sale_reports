@@ -37,15 +37,35 @@
                     <div class="card shadow-sm h-100">
                         <div class="card-body">
                             <div class="text-muted small">Gross Revenue</div>
-                            <div class="fs-4 fw-bold" t-esc="formatMoney(state.kpis.revenue)"/>
+                            <div class="fs-4 fw-bold" t-esc="formatMoney(state.kpis.gross)"/>
+                            <div class="text-muted small">ก่อนหักส่วนลด (ไม่รวม VAT)</div>
                         </div>
                     </div>
                 </div>
-                 <div class="col-md-3">
+                <div class="col-md-3">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-body">
+                            <div class="text-muted small">Discount Amount</div>
+                            <div class="fs-4 fw-bold" t-esc="formatMoney(state.kpis.discount)"/>
+                            <div class="text-muted small">ส่วนลด % + โปรโมชั่น (ไม่รวม VAT)</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
                     <div class="card shadow-sm h-100">
                         <div class="card-body">
                             <div class="text-muted small">Net Revenue</div>
-                            <div class="fs-4 fw-bold" t-esc="formatMoney(state.kpis.revenue+state.kpis.discount)"/>
+                            <div class="fs-4 fw-bold" t-esc="formatMoney(state.kpis.net)"/>
+                            <div class="text-muted small">หลังหักส่วนลด (ไม่รวม VAT)</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-body">
+                            <div class="text-muted small">Net Revenue incl. VAT</div>
+                            <div class="fs-4 fw-bold" t-esc="formatMoney(state.kpis.netIncl)"/>
+                            <div class="text-muted small">หลังหักส่วนลด (รวม VAT)</div>
                         </div>
                     </div>
                 </div>
@@ -54,6 +74,7 @@
                         <div class="card-body">
                             <div class="text-muted small">Quantity Sold</div>
                             <div class="fs-4 fw-bold" t-esc="formatMoney(state.kpis.qty)"/>
+                            <div class="text-muted small">เฉพาะสินค้า (ไม่นับค่าส่ง/ค่าบริการ)</div>
                         </div>
                     </div>
                 </div>
@@ -62,6 +83,7 @@
                         <div class="card-body">
                             <div class="text-muted small"># Orders</div>
                             <div class="fs-4 fw-bold" t-esc="state.kpis.orders"/>
+                            <div class="text-muted small">ไม่นับบิลคืนของ POS</div>
                         </div>
                     </div>
                 </div>
@@ -70,19 +92,10 @@
                         <div class="card-body">
                             <div class="text-muted small">Avg Order Value</div>
                             <div class="fs-4 fw-bold" t-esc="formatMoney(state.kpis.avgOrder)"/>
+                            <div class="text-muted small">Net Revenue / # Orders</div>
                         </div>
                     </div>
                 </div>
-
-      <div class="col-md-3">
-                    <div class="card shadow-sm h-100">
-                        <div class="card-body">
-                            <div class="text-muted small">Discount Amount</div>
-                            <div class="fs-4 fw-bold" t-esc="formatMoney(state.kpis.discount)"/>
-                        </div>
-                    </div>
-                </div>
-
             </div>
 
             <div class="card shadow-sm mb-4">
@@ -92,10 +105,10 @@
                         <thead>
                             <tr>
                                 <th>Channel</th>
-                                <th class="text-end">Untaxed Total</th>
-                                <th class="text-end">Gross Total</th>
-                                <th class="text-end">Net Sale</th>
+                                <th class="text-end">Gross (before discount)</th>
                                 <th class="text-end">Discount</th>
+                                <th class="text-end">Net (untaxed)</th>
+                                <th class="text-end">Net incl. VAT</th>
                                 <th class="text-end">Qty</th>
                                 <th class="text-end"># Orders</th>
                                 <th class="text-end">Avg Order</th>
@@ -104,16 +117,28 @@
                         <tbody>
                             <tr t-foreach="state.channelRows" t-as="row" t-key="row.key">
                                 <td t-esc="row.label"/>
-                                <td class="text-end" t-esc="formatMoney(row.untaxed)"/>
                                 <td class="text-end" t-esc="formatMoney(row.gross)"/>
-                                <td class="text-end" t-esc="formatMoney(row.gross+row.discount)"/>
                                 <td class="text-end" t-esc="formatMoney(row.discount)"/>
+                                <td class="text-end" t-esc="formatMoney(row.net)"/>
+                                <td class="text-end" t-esc="formatMoney(row.netIncl)"/>
                                 <td class="text-end" t-esc="formatMoney(row.qty)"/>
                                 <td class="text-end" t-esc="row.orders"/>
                                 <td class="text-end"
-                                    t-esc="formatMoney(row.orders ? row.gross / row.orders : 0)"/>
+                                    t-esc="formatMoney(row.orders ? row.net / row.orders : 0)"/>
                             </tr>
                         </tbody>
+                        <tfoot t-if="state.channelRows.length">
+                            <tr class="fw-bold">
+                                <td>Total</td>
+                                <td class="text-end" t-esc="formatMoney(state.kpis.gross)"/>
+                                <td class="text-end" t-esc="formatMoney(state.kpis.discount)"/>
+                                <td class="text-end" t-esc="formatMoney(state.kpis.net)"/>
+                                <td class="text-end" t-esc="formatMoney(state.kpis.netIncl)"/>
+                                <td class="text-end" t-esc="formatMoney(state.kpis.qty)"/>
+                                <td class="text-end" t-esc="state.kpis.orders"/>
+                                <td class="text-end" t-esc="formatMoney(state.kpis.avgOrder)"/>
+                            </tr>
+                        </tfoot>
                     </table>
                 </div>
             </div>
@@ -122,7 +147,7 @@
                 <div class="col-md-7">
                     <div class="card shadow-sm h-100">
                         <div class="card-body">
-                            <h5 class="card-title">Revenue Trend by Channel</h5>
+                            <h5 class="card-title">Revenue Trend by Channel (untaxed)</h5>
                             <div style="height: 320px;">
                                 <canvas t-ref="trendCanvas"/>
                             </div>
@@ -133,7 +158,7 @@
                     <div class="card shadow-sm h-100">
                         <div class="card-body">
                             <div class="d-flex align-items-center mb-2">
-                                <h5 class="card-title mb-0 me-auto">Trend by Product</h5>
+                                <h5 class="card-title mb-0 me-auto">Sales by Channel</h5>
                                 <select class="form-select form-select-sm w-auto"
                                     t-on-change="onPieMetricChange">
                                     <option value="price_subtotal">Revenue</option>

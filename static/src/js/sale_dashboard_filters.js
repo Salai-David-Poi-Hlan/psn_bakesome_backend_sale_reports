@@ -11,14 +11,15 @@ export const CHANNEL_LABELS={
 
 const DATE_DEBOUNCE_MS=400;
 
+// Local calendar date; toISOString() is UTC and gave the previous day in Bangkok.
 export function today(){
-    return new Date().toISOString().slice(0,10);
+    return new Date().toLocaleDateString("sv-SE");
 }
 
 
 export function firstDayOfMonth(){
     const d=new Date()
-    return new Date(d.getFullYear(),d.getMonth(),1).toISOString().slice(0,10);
+    return new Date(d.getFullYear(),d.getMonth(),1).toLocaleDateString("sv-SE");
 }
 
 
@@ -81,24 +82,26 @@ export function useSaleDashboardFilters(){
             },DATE_DEBOUNCE_MS)            
     }
 
-    function buildDomain(){        
-        const domain=[
+  function buildDomain(){        
+const domain=[
             ["date",">=",state.utcDateFrom],
             ["date","<",state.utcDateTo],
             ["state","not in",["draft","cancel"]],
-            ["product_tmpl_id.is_storable","=",true],
+          //  ["product_tmpl_id.is_storable","=",true],
+            "|",
+            ["channel_type","not in",["website","backend"]],
+            ["invoice_status","=","invoiced"],
         ];
 
-        if (state.branchId){
-            domain.push(["branch_id","=",state.branchId])
+if (state.branchId){
+domain.push(["branch_id","=",state.branchId])
         }
 
-        if(state.channelType){
-            domain.push(["channel_type","=",state.channelType])
+if(state.channelType){
+domain.push(["channel_type","=",state.channelType])
         }
 
-
-        return domain
+return domain
     }
 
      function buildDomainPurchase(){
@@ -106,7 +109,7 @@ export function useSaleDashboardFilters(){
         const domain=[
             ["date_order",">=",state.utcDateFrom],
             ["date_order","<",state.utcDateTo],
-            ["state","not in",["draft","cancel"]],
+            ["state","in",["purchase","done"]],
             ["product_tmpl_id.is_storable","=",true],
         ];
 
@@ -119,5 +122,11 @@ export function useSaleDashboardFilters(){
     
 
 
-    return {state,buildDomain,buildDomainPurchase,resolveDateBounds,onDateFieldChange,ready}
+    // Quantities: Shopee/Lazada fee and delivery lines are services sold as 1 THB x amount,
+    // so they would swamp product counts.
+    function buildGoodsDomain(){
+        return [...buildDomain(),["product_id.type","!=","service"]]
+    }
+
+    return {state,buildDomain,buildGoodsDomain,buildDomainPurchase,resolveDateBounds,onDateFieldChange,ready}
 }

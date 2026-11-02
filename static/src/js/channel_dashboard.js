@@ -21,9 +21,10 @@ export class SaleChannelDashboard extends Component {
     setup() {
         this.orm = useService("orm");
 
-        const { state, buildDomain, onDateFieldChange,ready } = useSaleDashboardFilters();
+        const { state, buildDomain, buildGoodsDomain, onDateFieldChange,ready } = useSaleDashboardFilters();
         this.filters = state;
         this.buildDomain = buildDomain;
+        this.buildGoodsDomain = buildGoodsDomain;
         this.onDateFieldChange = onDateFieldChange;
 
         this.trendCanvasRef = useRef("trendCanvas");
@@ -40,11 +41,12 @@ export class SaleChannelDashboard extends Component {
             loading: true,
             refreshing: false,
             error: null,
-            kpis: { revenue: 0, qty: 0, orders: 0, avgOrder: 0, discount: 0 },
+            kpis: { gross: 0, discount: 0, net: 0, netIncl: 0, qty: 0, orders: 0, avgOrder: 0 },
             channelRows: [],
             trendLabels: [],
             trendSeries: {},
             pieLabels: [],
+            pieKeys: [],
             pieData: [],
             branchLabels: [],
             branchData: [],
@@ -77,6 +79,11 @@ export class SaleChannelDashboard extends Component {
 
     get domain() {        
         return this.buildDomain();
+    }
+
+    // Quantity charts count goods only (no delivery / marketplace fee lines).
+    metricDomain(metric) {
+        return metric === "product_uom_qty" ? this.buildGoodsDomain() : this.domain;
     }
 
     get channelLabels() {
@@ -160,84 +167,113 @@ export class SaleChannelDashboard extends Component {
     }
 
     async loadChannelData() {
-        const result = await this.orm.readGroup(
-            "sale.report",
-            this.domain,
-            ["price_subtotal:sum", "price_total:sum", "product_uom_qty:sum", "order_reference:count_distinct", "discount:sum"],
-            ["channel_type"],
-            { lazy: false }
-        );
+        const [result, goods, sales] = await Promise.all([
+            this.orm.readGroup(
+                "sale.report",
+                this.domain,
+                ["price_subtotal:sum", "price_total:sum", "psn_discount_amount:sum"],
+                ["channel_type"],
+                { lazy: false }
+            ),
+            this.orm.readGroup("sale.report", this.buildGoodsDomain(), ["product_uom_qty:sum"], ["channel_type"], { lazy: false }),
+            // POS refund bills only carry negative quantities, so they drop out here.
+            this.orm.readGroup(
+                "sale.report",
+                [...this.domain, ["product_uom_qty", ">", 0]],
+                ["order_reference:count_distinct"],
+                ["channel_type"],
+                { lazy: false }
+            ),
+        ]);
+        const byChannel = (rows, field) => Object.fromEntries(rows.map((r) => [r.channel_type, r[field] || 0]));
+        const qtyByChannel = byChannel(goods, "product_uom_qty");
+        const ordersByChannel = byChannel(sales, "order_reference");
+        // All money columns except netIncl are untaxed:
+        // gross (before discount) = net + discount, net = price_subtotal.
         const rows = result
             .filter((r) => r.channel_type)
-            .map((r) => ({
-                key: r.channel_type,
-                label: CHANNEL_LABELS[r.channel_type] || r.channel_type,
-                gross: r.price_total || 0,
-                untaxed: r.price_subtotal || 0,
-                qty: r.product_uom_qty || 0,
-                orders: r.order_reference || 0,
-                discount: r.discount || 0,
-            }));
+            .map((r) => {
+                const net = r.price_subtotal || 0;
+                const disc = r.psn_discount_amount || 0;
+                return {
+                    key: r.channel_type,
+                    label: CHANNEL_LABELS[r.channel_type] || r.channel_type,
+                    gross: net + disc,
+                    discount: disc,
+                    net,
+                    netIncl: r.price_total || 0,
+                    qty: qtyByChannel[r.channel_type] || 0,
+                    orders: ordersByChannel[r.channel_type] || 0,
+                };
+            });
         this.state.channelRows = rows;
 
         const totals = rows.reduce(
             (acc, r) => ({
-                revenue: acc.revenue + r.untaxed,
+                gross: acc.gross + r.gross,
+                discount: acc.discount + r.discount,
+                net: acc.net + r.net,
+                netIncl: acc.netIncl + r.netIncl,
                 qty: acc.qty + r.qty,
                 orders: acc.orders + r.orders,
-                discount: acc.discount + r.discount,
             }),
-            { revenue: 0, qty: 0, orders: 0, discount: 0 }
+            { gross: 0, discount: 0, net: 0, netIncl: 0, qty: 0, orders: 0 }
         );
         this.state.kpis = {
             ...totals,
-            avgOrder: totals.orders ? totals.revenue / totals.orders : 0,
+            avgOrder: totals.orders ? totals.net / totals.orders : 0,
         };
     }
 
-    async loadTrend() {
-        const result = await this.orm.readGroup(
-            "sale.report",
-            this.domain,
-            ["price_total:sum"],
-            ["channel_type", "date:month"],
-            { lazy: false }
-        );
-        const monthsSet = new Set();
-        const byChannel = { backend: {}, website: {}, pos: {}, line_oa: {}, shopee: {} };
-        for (const row of result) {
-            const month = row["date:month"];
-            const channel = row.channel_type;
-            if (!month || !channel) continue;
-            monthsSet.add(month);
-            byChannel[channel][month] = (byChannel[channel][month] || 0) + (row.price_total || 0);
-        }
-        const months = Array.from(monthsSet).sort();
-        this.state.trendLabels = months;
-        const series = {};
-        for (const ch of Object.keys(byChannel)) {
-            series[ch] = months.map((m) => byChannel[ch][m] || 0);
-        }
-        this.state.trendSeries = series;
+ async loadTrend() {
+    // Untaxed, like the KPI cards and the pie/branch/category charts.
+    const result = await this.orm.readGroup(
+        "sale.report",
+        this.domain,
+        ["price_subtotal:sum"],
+        ["channel_type", "date:month"],
+        { lazy: false }
+    );
+    const monthsSet = new Set();
+    const byChannel = { backend: {}, website: {}, pos: {}, line_oa: {}, shopee: {} };
+    for (const row of result) {
+        const month = row["date:month"];
+        const channel = row.channel_type;
+        if (!month || !channel) continue;
+        monthsSet.add(month);
+        byChannel[channel][month] = (byChannel[channel][month] || 0) + (row.price_subtotal || 0);
     }
+    const months = Array.from(monthsSet).sort(
+        (a, b) => new Date(`1 ${a}`) - new Date(`1 ${b}`)
+    );
+    this.state.trendLabels = months;
+    const series = {};
+    for (const ch of Object.keys(byChannel)) {
+        series[ch] = months.map((m) => byChannel[ch][m] || 0);
+    }
+    this.state.trendSeries = series;
+}
 
     async loadPie() {
         const measure = this.state.pieMetric + ":sum";
-        const result = await this.orm.readGroup("sale.report", this.domain, [measure], ["channel_type"], { lazy: false });
+        const result = await this.orm.readGroup("sale.report", this.metricDomain(this.state.pieMetric), [measure], ["channel_type"], { lazy: false });
+        const keys = [];
         const labels = [];
         const data = [];
         for (const row of result) {
             if (!row.channel_type) continue;
+            keys.push(row.channel_type);
             labels.push(CHANNEL_LABELS[row.channel_type] || row.channel_type);
             data.push(row[this.state.pieMetric] || 0);
         }
+        this.state.pieKeys = keys;
         this.state.pieLabels = labels;
         this.state.pieData = data;
     }
 
     async loadBranchChart() {
         const measure = this.state.branchMetric + ":sum";
-        const result = await this.orm.readGroup("sale.report", this.domain, [measure], ["branch_id"], { lazy: false });
+        const result = await this.orm.readGroup("sale.report", this.metricDomain(this.state.branchMetric), [measure], ["branch_id"], { lazy: false });
         const labels = [];
         const data = [];
         for (const row of result) {
@@ -249,18 +285,20 @@ export class SaleChannelDashboard extends Component {
         this.state.branchData = data;
     }
 
-    async loadCustomerTrend() {
-        const result = await this.orm.readGroup(
-            "sale.report",
-            this.domain,
-            ["partner_id:count_distinct"],
-            ["date:month"],
-            { lazy: false }
-        );
-        const rows = result.filter((r) => r["date:month"]).sort((a, b) => (a["date:month"] > b["date:month"] ? 1 : -1));
-        this.state.customerTrendLabels = rows.map((r) => r["date:month"]);
-        this.state.customerTrendData = rows.map((r) => r.partner_id || 0);
-    }
+ async loadCustomerTrend() {
+    const result = await this.orm.readGroup(
+        "sale.report",
+        this.domain,
+        ["partner_id:count_distinct"],
+        ["date:month"],
+        { lazy: false }
+    );
+    const rows = result
+        .filter((r) => r["date:month"])
+        .sort((a, b) => new Date(`1 ${a["date:month"]}`) - new Date(`1 ${b["date:month"]}`));
+    this.state.customerTrendLabels = rows.map((r) => r["date:month"]);
+    this.state.customerTrendData = rows.map((r) => r.partner_id || 0);
+}
 
     async loadCustomerGauge() {
         const [activeResult, totalCustomers] = await Promise.all([
@@ -273,7 +311,7 @@ export class SaleChannelDashboard extends Component {
 
     async loadCategoryChart() {
         const measure = this.state.categoryMetric + ":sum";
-        const result = await this.orm.readGroup("sale.report", this.domain, [measure], ["categ_id"], { lazy: false });
+        const result = await this.orm.readGroup("sale.report", this.metricDomain(this.state.categoryMetric), [measure], ["categ_id"], { lazy: false });
         this.state.categoryRows = result
             .filter((r) => r.categ_id)
             .map((r) => ({ name: r.categ_id[1], value: r[this.state.categoryMetric] || 0 }))
@@ -317,7 +355,8 @@ export class SaleChannelDashboard extends Component {
 
     renderPieChart() {
         if (!this.pieCanvasRef.el) return;
-        const colors = this.state.pieLabels.map((_, i) => Object.values(CHANNEL_COLORS)[i] || "#999");
+        // Colour by channel key so the pie matches the trend chart.
+        const colors = this.state.pieKeys.map((k) => CHANNEL_COLORS[k] || "#999");
         if (this.charts.pie) {
             this.charts.pie.data.labels = this.state.pieLabels;
             this.charts.pie.data.datasets[0].data = this.state.pieData;

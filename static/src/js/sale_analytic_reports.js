@@ -13,7 +13,7 @@ const MENU_ITEMS=[
     {id:"dashboard",label:"Sale Channels Dashboard",icon:"fa-th-large"},
     {id:"products",label:"Top Products",icon:"fa-cubes"},
     {id:"customers",label:"Top Customers",icon:"fa-users"},
-    {id:"sale_purchase",label:"Sale & Purchases",icon:"fa-arrows-rotate"}
+    {id:"sale_purchase",label:"Sale & Purchases",icon:"fa-exchange"}
 ]
 
 

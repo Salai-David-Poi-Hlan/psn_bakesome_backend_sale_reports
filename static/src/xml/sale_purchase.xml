@@ -39,7 +39,8 @@
                           <div class="card shadow-sm h-100">
                              <div class="card-body">
                             <div class="text-muted small">Gross Purchases</div>
-                              <div class="fs-4 fw-bold" t-esc="formatMoney(state.summary.totalRevenue)"/>
+                              <div class="fs-4 fw-bold" t-esc="formatMoney(state.summary.totalGross)"/>
+                               <div class="text-muted small">ก่อนหักส่วนลด (ไม่รวม VAT)</div>
                              </div>
                           </div>
                  </div>
@@ -49,6 +50,7 @@
                            <div class="card-body">
                                <div class="text-muted small">Net Purchases</div>
                                <div class="fs-4 fw-bold" t-esc="formatMoney(state.summary.totalNet)"/>
+                               <div class="text-muted small">หลังหักส่วนลด (ไม่รวม VAT)</div>
                            </div>
                       </div>
                  </div>
@@ -56,8 +58,9 @@
                   <div class="col-md-3">
                       <div class="card shadow-sm h-100">
                            <div class="card-body">
-                               <div class="text-muted small">Untaxed Purchased Amount</div>
-                               <div class="fs-4 fw-bold" t-esc="formatMoney(state.summary.totalUntaxed)"/>
+                               <div class="text-muted small">Net Purchases incl. VAT</div>
+                               <div class="fs-4 fw-bold" t-esc="formatMoney(state.summary.totalRevenue)"/>
+                               <div class="text-muted small">หลังหักส่วนลด (รวม VAT)</div>
                            </div>
                       </div>
                  </div>
@@ -66,8 +69,9 @@
                 <div class="col-md-3">
                       <div class="card shadow-sm h-100">
                            <div class="card-body">
-                               <div class="text-muted small">Average Purchased Amount</div>
+                               <div class="text-muted small">Avg per Purchase Order</div>
                                <div class="fs-4 fw-bold" t-esc="formatMoney(state.summary.totalAverage)"/>
+                               <div class="text-muted small">Net Purchases / # PO</div>
                            </div>
                       </div>
                  </div>
@@ -78,6 +82,7 @@
                            <div class="card-body">
                                <div class="text-muted small">Total Purchased Discount Amount</div>
                                <div class="fs-4 fw-bold" t-esc="formatMoney(state.summary.totalDiscount)"/>
+                               <div class="text-muted small">ไม่รวม VAT</div>
                            </div>
                       </div>
                  </div>
@@ -97,7 +102,7 @@
                       <div class="card shadow-sm h-100">
                            <div class="card-body">
                                <div class="text-muted small">Total Purchase Orders </div>
-                               <div class="fs-4 fw-bold" t-esc="formatMoney(state.summary.purchaseOrders)"/>
+                               <div class="fs-4 fw-bold" t-esc="state.summary.purchaseOrders"/>
                            </div>
                       </div>
                  </div>
@@ -109,7 +114,7 @@
                               <table>
                                    <tr>
                                         <td>
-                                             Gross Sale
+                                             Net Sales (untaxed)
                                         </td>
                                         <td>
                                             <div class="fs-4 fw-bold" t-esc="formatMoney(state.summary.totalSaleRevenue)"/>
@@ -117,14 +122,14 @@
                                    </tr>
                                    <tr>
                                         <td>
-                                            Gross Profit
+                                            Sales − Purchases<div class="text-muted small">ไม่ใช่กำไร (ไม่ได้หักต้นทุนขาย)</div>
                                         </td>
                                         <td>
-                                               <t t-if="state.summary.totalSaleRevenue>state.summary.totalRevenue">
-                                                  <div class="fs-4 fw-bold text-success"  t-esc="formatMoney(state.summary.totalSaleRevenue-state.summary.totalRevenue)"/>
+                                               <t t-if="state.summary.totalSaleRevenue>state.summary.totalNet">
+                                                  <div class="fs-4 fw-bold text-success"  t-esc="formatMoney(state.summary.totalSaleRevenue-state.summary.totalNet)"/>
                                                </t>
-                                              <t t-elif="state.summary.totalRevenue>state.summary.totalSaleRevenue">
-                                                  <div class="fs-4 fw-bold text-danger"  t-esc="formatMoney(state.summary.totalSaleRevenue-state.summary.totalRevenue)"/>
+                                              <t t-elif="state.summary.totalNet>state.summary.totalSaleRevenue">
+                                                  <div class="fs-4 fw-bold text-danger"  t-esc="formatMoney(state.summary.totalSaleRevenue-state.summary.totalNet)"/>
                                                </t>
                                                <t t-else="">
                                                       <div class="fs-4 fw-bold"  t-esc="0.0"/>
@@ -148,8 +153,8 @@
                             <th style="position: sticky; top: 0; background: white; z-index: 1;">Image</th>
                             <th style="position: sticky; top: 0; background: white; z-index: 1;">Product Name</th>
                             <th style="position: sticky; top: 0; background: white; z-index: 1;" class="text-end">Quantity</th>
-                            <th style="position: sticky; top: 0; background: white; z-index: 1;" class="text-end">Purchase Price</th>
-                            <th style="position: sticky; top: 0; background: white; z-index: 1;" class="text-end">Discount Amount</th>
+                            <th style="position: sticky; top: 0; background: white; z-index: 1;" class="text-end">Purchase Amount (incl. VAT)</th>
+                            <th style="position: sticky; top: 0; background: white; z-index: 1;" class="text-end">Discount (untaxed)</th>
                         <th style="position: sticky; top: 0; background: white; z-index: 1;" class="text-end">Purchase Orders</th>
                         </tr>
                     </thead>
@@ -181,12 +186,12 @@
                             <th style="position: sticky; top: 0; background: white; z-index: 1;">No</th>
                             <th style="position: sticky; top: 0; background: white; z-index: 1;">Supplier Name</th>
                             <th style="position: sticky; top: 0; background: white; z-index: 1;" class="text-end">Quantity</th>
-                             <th style="position: sticky; top: 0; background: white; z-index: 1;" class="text-end">Untaxed Price</th>
-                            <th style="position: sticky; top: 0; background: white; z-index: 1;" class="text-end">Purchase Price</th>
-                            <th style="position: sticky; top: 0; background: white; z-index: 1;" class="text-end">Net Purchase Price</th>
-                            <th style="position: sticky; top: 0; background: white; z-index: 1;" class="text-end">Discount Amount</th>
+                             <th style="position: sticky; top: 0; background: white; z-index: 1;" class="text-end">Gross (before discount)</th>
+                            <th style="position: sticky; top: 0; background: white; z-index: 1;" class="text-end">Discount</th>
+                            <th style="position: sticky; top: 0; background: white; z-index: 1;" class="text-end">Net (untaxed)</th>
+                            <th style="position: sticky; top: 0; background: white; z-index: 1;" class="text-end">Net incl. VAT</th>
                         <th style="position: sticky; top: 0; background: white; z-index: 1;" class="text-end">Purchase Orders</th>
-                        <th style="position: sticky; top: 0; background: white; z-index: 1;" class="text-end">Average Order Amount</th>
+                        <th style="position: sticky; top: 0; background: white; z-index: 1;" class="text-end">Avg per PO (untaxed)</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -194,11 +199,11 @@
                             <td t-esc="v_index + 1"/>
                             <td t-esc="v.name"/>
                             <td class="text-end" t-esc="formatMoney(v.totalQty)"/>
-                            <td class="text-end" t-esc="formatMoney(v.totalUntaxed)"/>
-                            <td class="text-end" t-esc="formatMoney(v.totalRevenue)"/>
-                            <td class="text-end" t-esc="formatMoney(v.totalNet)"/>
+                            <td class="text-end" t-esc="formatMoney(v.totalGross)"/>
                             <td class="text-end" t-esc="formatMoney(v.totalDiscount)"/>
-                            <td class="text-end" t-esc="formatMoney(v.total_orders)"/>
+                            <td class="text-end" t-esc="formatMoney(v.totalNet)"/>
+                            <td class="text-end" t-esc="formatMoney(v.totalRevenue)"/>
+                            <td class="text-end" t-esc="v.total_orders"/>
                             <td class="text-end" t-esc="formatMoney(v.totalAverage)"/>
                         </tr>
                     </tbody>

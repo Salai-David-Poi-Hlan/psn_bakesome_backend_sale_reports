@@ -35,7 +35,7 @@ export class SalesPurchasesScreen extends Component {
             summary: {
                 totalQty: 0, totalRevenue: 0, totalSaleRevenue: 0,
                 totalAverage: 0, totalUntaxed: 0, totalDiscount: 0,
-                totalNet: 0, purchaseOrders: 0,
+                totalNet: 0, totalGross: 0, purchaseOrders: 0,
             },
             topSummaryOnPurchase:{
                 totalPurchaseQty:0,totalPurchaseRevenue:0,totalSaleQty:0,totalSaleRevenue:0
@@ -136,7 +136,7 @@ export class SalesPurchasesScreen extends Component {
         const result = await this.orm.readGroup(
             "purchase.report",
             this.buildPurchaseDomain(),
-            ["price_total:sum", "qty_ordered:sum", "untaxed_total:sum", "price_average:sum", "discount_amount:sum", "order_id:count_distinct"],
+            ["price_total:sum", "qty_ordered:sum", "untaxed_total:sum", "psn_discount_amount:sum", "order_id:count_distinct"],
             ["partner_id"],
             { lazy: false }
         );
@@ -147,12 +147,14 @@ export class SalesPurchasesScreen extends Component {
                 id: r.partner_id[0],
                 name: r.partner_id[1],
                 totalQty: r.qty_ordered || 0,
+                // totalRevenue is incl. VAT; gross/discount/net are untaxed.
                 totalRevenue: r.price_total || 0,
                 totalUntaxed: r.untaxed_total || 0,
-                totalAverage: r.price_average || 0,
-                totalDiscount: r.discount_amount || 0,
-                totalNet: (r.price_total || 0) + (r.discount_amount || 0),
+                totalDiscount: r.psn_discount_amount || 0,
+                totalGross: (r.untaxed_total || 0) + (r.psn_discount_amount || 0),
+                totalNet: r.untaxed_total || 0,
                 total_orders: r.order_id || 0,
+                totalAverage: r.order_id ? (r.untaxed_total || 0) / r.order_id : 0,
             }));
 
         const metric = this.state.sortBy;
@@ -164,11 +166,13 @@ export class SalesPurchasesScreen extends Component {
             totalQty: rows.reduce((sum, r) => sum + r.totalQty, 0),
             totalRevenue: rows.reduce((sum, r) => sum + r.totalRevenue, 0),
             totalUntaxed: rows.reduce((sum, r) => sum + r.totalUntaxed, 0),
-            totalAverage: rows.reduce((sum, r) => sum + r.totalAverage, 0),
             totalDiscount: rows.reduce((sum, r) => sum + r.totalDiscount, 0),
+            totalGross: rows.reduce((sum, r) => sum + r.totalGross, 0),
             totalNet: rows.reduce((sum, r) => sum + r.totalNet, 0),
             purchaseOrders: rows.reduce((sum, r) => sum + r.total_orders, 0),
         };
+        const s = this.state.summary;
+        s.totalAverage = s.purchaseOrders ? s.totalNet / s.purchaseOrders : 0;
 
 
         
@@ -229,11 +233,12 @@ export class SalesPurchasesScreen extends Component {
         const result = await this.orm.readGroup(
             "sale.report",
             this.buildSaleDomain(),
-            ["price_total:sum"],
+            ["price_subtotal:sum"],
             [],
             { lazy: false }
         );
-        const totalSaleRevenue = result.reduce((sum, r) => sum + (r.price_total || 0), 0);
+        // Untaxed, to compare with Net Purchases (untaxed).
+        const totalSaleRevenue = result.reduce((sum, r) => sum + (r.price_subtotal || 0), 0);
         this.state.summary = { ...this.state.summary, totalSaleRevenue };
     }
 
@@ -243,7 +248,7 @@ export class SalesPurchasesScreen extends Component {
         const result = await this.orm.readGroup(
             "purchase.report",
             this.buildPurchaseDomain(),
-            ["price_total:sum", "qty_ordered:sum", "discount_amount:sum", "order_id:count_distinct"],
+            ["price_total:sum", "qty_ordered:sum", "psn_discount_amount:sum", "order_id:count_distinct"],
             ["product_id"],
             { lazy: false }
         );
@@ -258,8 +263,9 @@ export class SalesPurchasesScreen extends Component {
                 name: r.product_id[1],
                 qty: r.qty_ordered || 0,
                 revenue: r.price_total || 0,
-                discount: r.discount_amount || 0,
+                discount: r.psn_discount_amount || 0,
                 orders: r.order_id || 0,
+                imageUrl: `/web/image/product.product/${r.product_id[0]}/image_128`,
             }))
             .sort((a, b) => b[key] - a[key])
             .slice(0, 20);

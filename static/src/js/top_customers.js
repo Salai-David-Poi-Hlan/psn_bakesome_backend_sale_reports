@@ -14,9 +14,10 @@ export class TopCustomersScreen extends Component{
 
     setup(){
         this.orm=useService("orm")
-        const {state,buildDomain,ready,onDateFieldChange}=useSaleDashboardFilters()
+        const {state,buildDomain,buildGoodsDomain,ready,onDateFieldChange}=useSaleDashboardFilters()
         this.filters=state
         this.buildDomain=buildDomain
+        this.buildGoodsDomain=buildGoodsDomain
         this.onDateFieldChange=onDateFieldChange
         this.state=useState({
             sortBy:"price_subtotal",topCustomers:[],
@@ -34,7 +35,7 @@ export class TopCustomersScreen extends Component{
         })
 
         onMounted(async()=>{
-                         await this.chart.genericChart.render(this.state.topCustomers, this.metricKey)
+            await this.chart.genericChart.render(this.state.topCustomers, this.metricKey)
 
         })
     }
@@ -49,7 +50,7 @@ export class TopCustomersScreen extends Component{
 
 
     async refresh(){
-        this.chart.reset()
+        this.chart.genericChart.reset()
         await this.loadTopCustomers()
         await this.chart.genericChart.render(this.state.topCustomers,this.metricKey)
     }
@@ -82,16 +83,16 @@ export class TopCustomersScreen extends Component{
 
 
     get chartPageLabel(){
-        return this.chart.pagelabel(this.state.topCustomers)
+        return this.chart.genericChart.pagelabel(this.state.topCustomers)
     }
 
     async loadTopCustomers(){
-        const result=await this.orm.readGroup(
-            "sale.report",
-            this.buildDomain(),
-            ["price_total:sum","product_uom_qty:sum"],
-            ["partner_id"],
-            {lazy:false}
+        const [result,goods]=await Promise.all([
+            this.orm.readGroup("sale.report",this.buildDomain(),["price_subtotal:sum"],["partner_id"],{lazy:false}),
+            this.orm.readGroup("sale.report",this.buildGoodsDomain(),["product_uom_qty:sum"],["partner_id"],{lazy:false}),
+        ])
+        const qtyByPartner=Object.fromEntries(
+            goods.filter((r)=>r.partner_id).map((r)=>[r.partner_id[0],r.product_uom_qty || 0])
         )
         const key=this.metricKey
         const rows=result
@@ -99,8 +100,8 @@ export class TopCustomersScreen extends Component{
         .map((r)=>({
             id:r.partner_id[0],
             name:r.partner_id[1],
-            qty:r.product_uom_qty || 0,
-            revenue:r.price_total || 0
+            qty:qtyByPartner[r.partner_id[0]] || 0,
+            revenue:r.price_subtotal || 0
         }))
         .sort((a,b)=>{
            
