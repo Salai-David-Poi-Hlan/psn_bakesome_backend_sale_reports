@@ -78,6 +78,15 @@
                         </div>
                     </div>
                 </div>
+                  <div class="col-md-3">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-body">
+                            <div class="text-muted small">Package Quantity Sold</div>
+                            <div class="fs-4 fw-bold" t-esc="formatMoney(state.kpis.packageQty)"/>
+                            <div class="text-muted small">เฉพาะสินค้า (ไม่นับค่าส่ง/ค่าบริการ)</div>
+                        </div>
+                    </div>
+                </div>
                 <div class="col-md-3">
                     <div class="card shadow-sm h-100">
                         <div class="card-body">
@@ -110,6 +119,7 @@
                                 <th class="text-end">Net (untaxed)</th>
                                 <th class="text-end">Net incl. VAT</th>
                                 <th class="text-end">Qty</th>
+                                <th class="text-end">Package Qty</th>
                                 <th class="text-end"># Orders</th>
                                 <th class="text-end">Avg Order</th>
                             </tr>
@@ -122,6 +132,7 @@
                                 <td class="text-end" t-esc="formatMoney(row.net)"/>
                                 <td class="text-end" t-esc="formatMoney(row.netIncl)"/>
                                 <td class="text-end" t-esc="formatMoney(row.qty)"/>
+                                <td class="text-end" t-esc="formatMoney(row.packageQty)"/>
                                 <td class="text-end" t-esc="row.orders"/>
                                 <td class="text-end"
                                     t-esc="formatMoney(row.orders ? row.net / row.orders : 0)"/>
@@ -163,6 +174,7 @@
                                     t-on-change="onPieMetricChange">
                                     <option value="price_subtotal">Revenue</option>
                                     <option value="product_uom_qty">Quantity</option>
+                                    <option value="product_packaging_qty">Package Quantity</option>
                                 </select>
                             </div>
                             <div style="height: 320px;">
@@ -183,6 +195,7 @@
                 <select class="form-select form-select-sm w-auto" t-on-change="onBranchMetricChange">
                     <option value="price_subtotal">Revenue</option>
                     <option value="product_uom_qty">Quantity</option>
+                    <option value="product_packaging_qty">Package Quantity</option>
                 </select>
                  </div>
                  <div style="height:300px">
@@ -231,6 +244,7 @@
                 <select class="form-select form-select-sm w-auto me-2" t-on-change="onCategoryMetricChange">
                     <option value="price_subtotal">Revenue</option>
                     <option value="product_uom_qty">Quantity</option>
+                    <option value="product_packaging_qty">Package Quantity</option>
                 </select>
                 <button class="btn btn-sm btn-outline-secondary" t-on-click="toggleCategorypage">
                       <t t-esc="categoryPagelabel"/>

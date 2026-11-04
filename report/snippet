@@ -46,3 +46,31 @@ class SaleReport(models.Model):
             config.branch_id,
             pos.date_order"""
         return res
+
+from odoo import fields, models
+
+
+class SaleReport(models.Model):
+    _inherit = "sale.report"
+
+
+    product_packaging_qty=fields.Float(string="Package Qty Ordered",readonly=True)
+    
+    
+    def _select_sale(self):
+        res =  super()._select_sale()
+        res+="""
+        CASE WHEN l.product_id IS NOT NULL AND l.product_packaging_id IS NOT NULL THEN  SUM(l.product_packaging_qty) ELSE 0 END AS product_packaging_qty
+        """
+        return res
+
+
+    def _select_pos(self):
+        res=super()._select_pos()
+        res+="""
+         SUM(l.product_packaging_qty) AS product_packaging_qty
+        """
+        return res
+
+
+

@@ -22,7 +22,7 @@ export class TopCustomersScreen extends Component{
         this.state=useState({
             sortBy:"price_subtotal",topCustomers:[],
             summary:{
-                totalQty:0,totalRevenue:0,totalAverage:0
+                totalQty:0,totalRevenue:0,totalAverage:0,totalPackageQty:0
             }
         })
        
@@ -35,13 +35,15 @@ export class TopCustomersScreen extends Component{
         })
 
         onMounted(async()=>{
-            await this.chart.genericChart.render(this.state.topCustomers, this.metricKey)
+            await this.chart.genericChart.render(this.state.topCustomers,this.metricKey)
 
         })
     }
 
     get metricKey(){
-        return this.state.sortBy==="product_uom_qty"?"qty":"revenue"
+        return this.state.sortBy==="product_uom_qty"?"qty"
+        : this.state.sortBy === "product_packaging_qty" ? "packagingQty"
+        :"revenue"
     }
 
     get channelLabels() {
@@ -89,10 +91,13 @@ export class TopCustomersScreen extends Component{
     async loadTopCustomers(){
         const [result,goods]=await Promise.all([
             this.orm.readGroup("sale.report",this.buildDomain(),["price_subtotal:sum"],["partner_id"],{lazy:false}),
-            this.orm.readGroup("sale.report",this.buildGoodsDomain(),["product_uom_qty:sum"],["partner_id"],{lazy:false}),
+            this.orm.readGroup("sale.report",this.buildGoodsDomain(),["product_uom_qty:sum","product_packaging_qty:sum"],["partner_id"],{lazy:false}),
         ])
         const qtyByPartner=Object.fromEntries(
             goods.filter((r)=>r.partner_id).map((r)=>[r.partner_id[0],r.product_uom_qty || 0])
+        )
+        const packageQtyByPartner=Object.fromEntries(
+            goods.filter((r)=>r.partner_id).map((r)=>[r.partner_id[0],r.product_packaging_qty || 0])
         )
         const key=this.metricKey
         const rows=result
@@ -101,6 +106,7 @@ export class TopCustomersScreen extends Component{
             id:r.partner_id[0],
             name:r.partner_id[1],
             qty:qtyByPartner[r.partner_id[0]] || 0,
+            packagingQty:packageQtyByPartner[r.partner_id[0]] || 0,
             revenue:r.price_subtotal || 0
         }))
         .sort((a,b)=>{
@@ -116,9 +122,12 @@ export class TopCustomersScreen extends Component{
         this.state.summary={
             totalQty:rows.reduce((sum,r)=>sum+r.qty,0),
             totalRevenue:rows.reduce((sum,r)=>sum+r.revenue,0),
-            totalAverage:rows.length>0?rows.reduce((sum,r)=>sum+r.revenue,0)/rows.length:0
-    }
-    }
+            totalAverage:rows.length>0?rows.reduce((sum,r)=>sum+r.revenue,0)/rows.length:0,
+            totalPackageQty:rows.reduce((sum,r)=>sum+r.packagingQty,0)
+        }}
+
+
+
     formatMoney(value) {
         return formatFloat(value, { digits: [16, 2] });
     }

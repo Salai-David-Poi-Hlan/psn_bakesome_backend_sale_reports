@@ -7,6 +7,7 @@ class SaleReport(models.Model):
 
     line_oa_order_id = fields.Many2one('line.oa.order', readonly=True)
     is_line_oa_order = fields.Boolean(readonly=True)
+    product_packaging_qty=fields.Float(string="Package Qty Ordered",readonly=True)
 
     channel_type = fields.Selection([
         ('backend', 'Backend Sale'),
@@ -41,6 +42,7 @@ class SaleReport(models.Model):
 
     def _select_additional_fields(self):
         res = super()._select_additional_fields()
+        res['product_packaging_qty'] = "SUM(COALESCE(l.product_packaging_qty, 0))"
         res['line_oa_order_id'] = "s.line_oa_order_id"
         res['is_line_oa_order'] = "s.is_line_oa_order"
         res["shopee_order_id"]="s.shopee_order_id"

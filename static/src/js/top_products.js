@@ -22,7 +22,7 @@ export class TopProductScreen extends Component{
             sortBy:"price_subtotal",
             topProducts:[],
             summary:{
-                totalQty:0,totalRevenue:0,totalAverage:0
+                totalQty:0,totalRevenue:0,totalAverage:0,totalPackageQty:0
             }
         })
         this.chart=usePageRankedChart()
@@ -42,7 +42,16 @@ export class TopProductScreen extends Component{
     
 
     get metricKey() {
-        return this.state.sortBy === "product_uom_qty" ? "qty" : "revenue";
+        if (this.state.sortBy === "product_uom_qty"){
+            return "qty"
+        }
+        else if (this.state.sortBy === "product_packaging_qty"){
+            return "packagingQty"
+        }
+
+        else{
+            return "revenue"
+        }
     }
 
     get channelLabels() {
@@ -76,7 +85,7 @@ export class TopProductScreen extends Component{
 
     async toggleChartPage() {
        await this.chart.genericChart.toggle(this.state.topProducts);
-        this.chart.genericChart.render(this.state.topProducts, this.metricKey);
+        this.chart.genericChart.render(this.state.topProducts,this.metricKey);
     }
 
     get chartPageLabel() {
@@ -88,23 +97,23 @@ export class TopProductScreen extends Component{
             const result=await this.orm.readGroup(
                 "sale.report",
                 this.buildGoodsDomain(),
-                ["price_subtotal:sum","product_uom_qty:sum"],
+                ["price_subtotal:sum","product_uom_qty:sum","product_packaging_qty:sum"],
                 ["product_id"],
                 {lazy:false}
             );
 
             
-            const metric=this.state.sortBy;
             const rows=result.filter((r)=>r.product_id)
             .map((r)=>({
                 id:r.product_id[0],
                 name:r.product_id[1],
                 qty:r.product_uom_qty || 0,
+                packagingQty:r.product_packaging_qty || 0,
                 revenue:r.price_subtotal || 0,
                 imageUrl: `/web/image/product.product/${r.product_id[0]}/image_128`,
             }))
             .sort((a,b)=>{
-                const key=metric==="product_uom_qty" ? "qty":"revenue";
+                const key= this.metricKey
                 return b[key]-a[key]
             })
             .slice(0,20);
@@ -114,7 +123,7 @@ export class TopProductScreen extends Component{
             this.state.summary={
                 totalQty:rows.reduce((sum,r)=>sum+r.qty,0),
                 totalRevenue:rows.reduce((sum,r)=>sum+r.revenue,0),
-
+                totalPackageQty:rows.reduce((sum,r)=>sum+r.packagingQty,0)
             }
        }
 

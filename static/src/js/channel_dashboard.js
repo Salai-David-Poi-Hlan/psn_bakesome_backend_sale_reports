@@ -41,7 +41,7 @@ export class SaleChannelDashboard extends Component {
             loading: true,
             refreshing: false,
             error: null,
-            kpis: { gross: 0, discount: 0, net: 0, netIncl: 0, qty: 0, orders: 0, avgOrder: 0 },
+            kpis: { gross: 0, discount: 0, net: 0, netIncl: 0, qty: 0, packageQty:0, orders: 0, avgOrder: 0 },
             channelRows: [],
             trendLabels: [],
             trendSeries: {},
@@ -175,7 +175,7 @@ export class SaleChannelDashboard extends Component {
                 ["channel_type"],
                 { lazy: false }
             ),
-            this.orm.readGroup("sale.report", this.buildGoodsDomain(), ["product_uom_qty:sum"], ["channel_type"], { lazy: false }),
+            this.orm.readGroup("sale.report", this.buildGoodsDomain(), ["product_uom_qty:sum","product_packaging_qty:sum"], ["channel_type"], { lazy: false }),
             // POS refund bills only carry negative quantities, so they drop out here.
             this.orm.readGroup(
                 "sale.report",
@@ -187,6 +187,7 @@ export class SaleChannelDashboard extends Component {
         ]);
         const byChannel = (rows, field) => Object.fromEntries(rows.map((r) => [r.channel_type, r[field] || 0]));
         const qtyByChannel = byChannel(goods, "product_uom_qty");
+        const packageQtyByChannel=byChannel(goods,"product_packaging_qty");
         const ordersByChannel = byChannel(sales, "order_reference");
         // All money columns except netIncl are untaxed:
         // gross (before discount) = net + discount, net = price_subtotal.
@@ -203,6 +204,7 @@ export class SaleChannelDashboard extends Component {
                     net,
                     netIncl: r.price_total || 0,
                     qty: qtyByChannel[r.channel_type] || 0,
+                    packageQty:packageQtyByChannel[r.channel_type] || 0,
                     orders: ordersByChannel[r.channel_type] || 0,
                 };
             });
@@ -215,9 +217,10 @@ export class SaleChannelDashboard extends Component {
                 net: acc.net + r.net,
                 netIncl: acc.netIncl + r.netIncl,
                 qty: acc.qty + r.qty,
+                packageQty:acc.packageQty + r.packageQty,
                 orders: acc.orders + r.orders,
             }),
-            { gross: 0, discount: 0, net: 0, netIncl: 0, qty: 0, orders: 0 }
+            { gross: 0, discount: 0, net: 0, netIncl: 0, qty: 0, packageQty:0, orders: 0 }
         );
         this.state.kpis = {
             ...totals,

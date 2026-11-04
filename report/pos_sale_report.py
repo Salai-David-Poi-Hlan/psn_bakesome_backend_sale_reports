@@ -9,6 +9,7 @@ class SaleReport(models.Model):
         res = super()._available_additional_pos_fields()
         res['branch_id'] = 'config.branch_id'
         res['channel_type'] = "'pos'"
+        res['product_packaging_qty'] = "SUM(COALESCE(l.product_packaging_qty, 0))"
         res['psn_discount_amount'] = """
             SUM(%s)
                 / MIN(CASE COALESCE(pos.currency_rate, 0) WHEN 0 THEN 1.0 ELSE pos.currency_rate END)

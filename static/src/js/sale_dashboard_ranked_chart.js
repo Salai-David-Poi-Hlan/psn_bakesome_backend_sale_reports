@@ -70,7 +70,9 @@ export function usePageRankedChart(){
     const genericChart=createPageBarChart(useRef("barCanvas"),{
         buildDataSets:(items,metricKey)=>[
             {
-                label:metricKey==="qty"?"Quantity":"Revenue",
+                label:metricKey==="qty"?"Quantity"
+                :metricKey === "packagingQty" ? "Package Quantity"
+                :"Revenue",
                 data:items.map((i)=>i[metricKey]),
                 backgroundColor:"orange"
             }

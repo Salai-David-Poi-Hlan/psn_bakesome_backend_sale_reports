@@ -7,8 +7,7 @@
       <div style="margin-left:60px">
                    <img src="/psn_bakesome_backend_sale_reports/static/src/image/bakesome.jpg" style="width:50px;height:50px;border-radius:9999px"/>
                 </div>
-
-                               <h2 class="me-auto mb-0 text-white">Top 20 Products</h2>
+                <h2 class="me-auto mb-0 text-white">Top 20 Products</h2>
                  <div>
                    <label class="form-label mb-0">Branch</label>
                    <select class="form-select form-select-sm" t-on-change="onBranchChange">
@@ -49,8 +48,8 @@
                     <label class="form-label mb-0">Rank By</label>
                     <select class="form-select form-select-sm" t-on-change="onSortByChange">
                              <option value="price_subtotal">Revenue</option>
-                              <option value="product_uom_qty">Quantity</option>
-
+                             <option value="product_uom_qty">Quantity</option>
+                             <option value="product_packaging_qty">Package Quantity</option>
                     </select>
             </div>
             </div>
@@ -89,6 +88,18 @@
                 </div>
             </div>
 
+                        <div class="d-flex align-items-center gap-3 py-3 border-bottom">
+    <div class="rounded-circle bg-info bg-opacity-25 d-flex align-items-center justify-content-center"
+         style="width:44px;height:44px;">
+        <i class="fa fa-cube text-info"/>
+    </div>
+    <div>
+        <div class="text-muted small">Total Packaging Quantity</div>
+        <div class="fs-4 fw-bold"
+             t-esc="formatMoney(state.summary.totalPackageQty)"/>
+    </div>
+</div>
+
             <div class="d-flex align-items-center gap-3 py-3 border-bottom">
                 <div class="rounded-circle bg-success bg-opacity-25 d-flex align-items-center justify-content-center"
                      style="width:44px;height:44px;">
@@ -99,6 +110,8 @@
                     <div class="fs-4 fw-bold" t-esc="formatMoney(state.summary.totalRevenue)"/>
                 </div>
             </div>
+
+
 
 
             <div class="mt-auto pt-2 text-muted small text-end">
@@ -119,6 +132,7 @@
                             <th style="position: sticky; top: 0; background: white; z-index: 1;">No</th>
                             <th style="position: sticky; top: 0; background: white; z-index: 1;">Image</th>
                             <th style="position: sticky; top: 0; background: white; z-index: 1;">Product Name</th>
+                            <th style="position: sticky; top: 0; background: white; z-index: 1;" class="text-end">Package Quantity</th>
                             <th style="position: sticky; top: 0; background: white; z-index: 1;" class="text-end">Quantity</th>
                             <th style="position: sticky; top: 0; background: white; z-index: 1;" class="text-end">Revenue (excl. VAT)</th>
                         </tr>
@@ -130,6 +144,7 @@
                                 <img t-att-src="p.imageUrl" style="width:40px;height:40px;object-fit:cover;border-radius:4px;"/>
                             </td>
                             <td t-esc="p.name"/>
+                            <td class="text-end" t-esc="formatMoney(p.packagingQty)"/>
                             <td class="text-end" t-esc="formatMoney(p.qty)"/>
                             <td class="text-end" t-esc="formatMoney(p.revenue)"/>
                         </tr>
@@ -140,6 +155,8 @@
     </div>
           </div>
     </t>
+
+
 
 <t t-name="psn_bakesome_backend_sale_reports.TopCustomers" owl="1">
 <div class="o_sale_channel_dashboard p-3 d-flex flex-column" style="height: calc(100vh - 60px);">
@@ -188,7 +205,7 @@
                     <select class="form-select form-select-sm" t-on-change="onSortByChange">
                              <option value="price_subtotal">Revenue</option>
                               <option value="product_uom_qty">Quantity</option>
-
+                             <option value="product_packaging_qty">Package Quantity</option>
                     </select>
             </div>
             </div>
@@ -224,6 +241,18 @@
                          <div class="fs-4 fw-bold" t-esc="formatMoney(state.summary.totalQty)"/>
                       </div>
                     </div>
+
+                                <div class="d-flex align-items-center gap-3 py-3 border-bottom">
+    <div class="rounded-circle bg-info bg-opacity-25 d-flex align-items-center justify-content-center"
+         style="width:44px;height:44px;">
+        <i class="fa fa-cube text-info"/>
+    </div>
+    <div>
+        <div class="text-muted small">Total Packaging Quantity</div>
+        <div class="fs-4 fw-bold"
+             t-esc="formatMoney(state.summary.totalPackageQty)"/>
+    </div>
+</div>
                     <div class="d-flex align-items-center gap-3 py-3 border-bottom">
                       <div class="rounded-circle bg-warning bg-opacity-25 d-flex align-items-center justify-content-center"
                       style="width:44px;height:44px">
@@ -253,6 +282,7 @@
                         <tr>
                             <th style="position: sticky; top: 0; background: white; z-index: 1;">No</th>
                             <th style="position: sticky; top: 0; background: white; z-index: 1;">Customer Name</th>
+                            <th style="position: sticky; top: 0; background: white; z-index: 1;" class="text-end">Package Quantity</th>
                             <th style="position: sticky; top: 0; background: white; z-index: 1;" class="text-end">Quantity</th>
                             <th style="position: sticky; top: 0; background: white; z-index: 1;" class="text-end">Revenue (excl. VAT)</th>
                         </tr>
@@ -261,6 +291,7 @@
                         <tr t-foreach="state.topCustomers" t-as="c" t-key="c.id">
                             <td t-esc="c_index + 1"/>
                             <td t-esc="c.name"/>
+                            <td class="text-end" t-esc="formatMoney(c.packagingQty)"/>
                             <td class="text-end" t-esc="formatMoney(c.qty)"/>
                             <td class="text-end" t-esc="formatMoney(c.revenue)"/>
                         </tr>
